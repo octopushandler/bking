@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset y configuración base */
+html,
+body {
+	margin: 0;
+	width: 100%;
+	height: 100%;
+	font-family: 'Inter', system-ui, -apple-system, sans-serif;
+	line-height: 1.6;
+	color: #1f2937;
+	background-color: #ffffff;
+}
+
+/* Mejoras de accesibilidad */
+*:focus {
+	outline: 2px solid #3b82f6;
+	outline-offset: 2px;
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: #f1f5f9;
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+	background: #cbd5e1;
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: #94a3b8;
+}
+
+/* Utilidades personalizadas */
+@layer components {
+	.btn-primary {
+		@apply bg-booking-blue text-white px-4 py-2 rounded-md font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors duration-200;
+	}
+	
+	.btn-secondary {
+		@apply bg-white text-booking-blue border border-booking-blue px-4 py-2 rounded-md font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors duration-200;
+	}
+	
+	.input-field {
+		@apply w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200;
+	}
+	
+	.card {
+		@apply bg-white rounded-lg shadow-booking border border-gray-200 p-6;
+	}
+	
+	.dropdown {
+		@apply absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-booking-lg z-50 max-h-80 overflow-y-auto mt-1;
+	}
+}
+
+/* Animaciones personalizadas */
+@keyframes fadeInUp {
+	from {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes slideInRight {
+	from {
+		opacity: 0;
+		transform: translateX(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+@keyframes pulse {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
+/* Clases de animación */
+.animate-fade-in-up {
+	animation: fadeInUp 0.3s ease-out;
+}
+
+.animate-slide-in-right {
+	animation: slideInRight 0.3s ease-out;
+}
+
+.animate-pulse-slow {
+	animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Mejoras de accesibilidad para lectores de pantalla */
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.focus\:not-sr-only:focus {
+	position: static;
+	width: auto;
+	height: auto;
+	padding: 0;
+	margin: 0;
+	overflow: visible;
+	clip: auto;
+	white-space: normal;
+}
+
+/* Mejoras de rendimiento */
+.gpu-accelerated {
+	transform: translateZ(0);
+	will-change: transform;
+}
+
+/* Responsive text */
+@media (max-width: 640px) {
+	html {
+		font-size: 14px;
+	}
+}
+
+@media (min-width: 1024px) {
+	html {
+		font-size: 16px;
+	}
+}

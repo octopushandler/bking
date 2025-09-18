@@ -1,0 +1,601 @@
+<script>
+	import { onMount } from 'svelte';
+	import { BOOKING_API_CONFIG, buildSearchUrl, getDestinationTypeConfig } from '$lib/config/api';
+	
+	// ===== CONFIGURACIÓN =====
+	const { SEARCH_CONFIG } = BOOKING_API_CONFIG;
+	
+	// ===== REFERENCIAS DOM =====
+	let input;
+	let dropdown;
+	
+	// ===== ESTADO DE BÚSQUEDA =====
+	let query = '';
+	let results = [];
+	let isLoading = false;
+	let showDropdown = false;
+	let debounceTimer = null;
+	let errorMessage = '';
+	
+	// ===== ESTADO DE FECHAS =====
+	let checkInDate = '';
+	let checkOutDate = '';
+	let showDatePicker = false;
+	
+	// ===== ESTADO DE HUÉSPEDES =====
+	let adults = 2;
+	let children = 0;
+	let rooms = 1;
+	let pets = false;
+	let showGuestPicker = false;
+	let guestText = '';
+	
+	// ===== REACTIVIDAD =====
+	$: guestText = getGuestText();
+	
+	// ===== FUNCIONES DE BÚSQUEDA =====
+	function handleInput(event) {
+		const target = event.target;
+		query = target.value;
+		errorMessage = '';
+		
+		clearDebounceTimer();
+		
+		if (!query.trim() || query.trim().length <= 1) {
+			showDropdown = false;
+			results = [];
+			return;
+		}
+		
+		debounceTimer = setTimeout(() => {
+			searchDestinations(query.trim());
+		}, SEARCH_CONFIG.debounceDelay);
+	}
+	
+	function clearDebounceTimer() {
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+		}
+	}
+	
+	async function searchDestinations(searchQuery) {
+		if (isLoading) return;
+		
+		isLoading = true;
+		showDropdown = true;
+		errorMessage = '';
+		
+		try {
+			const response = await fetch(buildSearchUrl(searchQuery), {
+				method: 'GET',
+				headers: BOOKING_API_CONFIG.HEADERS
+			});
+			
+			if (!response.ok) {
+				throw new Error(getErrorMessage(response.status));
+			}
+			
+			const data = await response.json();
+			results = data
+				.filter(destination => 
+					destination.dest_type === 'city' || destination.dest_type === 'hotel'
+				)
+				.slice(0, SEARCH_CONFIG.maxResults);
+			
+		} catch (error) {
+			console.error('Error buscando destinos:', error);
+			errorMessage = error instanceof Error ? error.message : 'Error desconocido al buscar destinos';
+			results = [];
+		} finally {
+			isLoading = false;
+		}
+	}
+	
+	function getErrorMessage(status) {
+		switch (status) {
+			case 429:
+				return 'Demasiadas solicitudes. Intenta de nuevo en unos momentos.';
+			case 401:
+				return 'Error de autenticación. Verifica la configuración de la API.';
+			default:
+				return `Error del servidor: ${status}`;
+		}
+	}
+	
+	function selectDestination(destination) {
+		query = destination.name;
+		showDropdown = false;
+		results = [];
+		errorMessage = '';
+		
+		saveDestinationToStorage(destination);
+	}
+	
+	function saveDestinationToStorage(destination) {
+		if (typeof window !== 'undefined') {
+			localStorage.setItem('selectedDestination', JSON.stringify(destination));
+		}
+	}
+	
+	function closeDropdown() {
+		showDropdown = false;
+	}
+	
+	// ===== FUNCIONES DE FECHAS =====
+	function formatDate(date) {
+		return date.toISOString().split('T')[0];
+	}
+	
+	function getTodayDate() {
+		return formatDate(new Date());
+	}
+	
+	function getTomorrowDate() {
+		const tomorrow = new Date();
+		tomorrow.setDate(tomorrow.getDate() + 1);
+		return formatDate(tomorrow);
+	}
+	
+	function handleDateChange(type, value) {
+		if (type === 'checkin') {
+			checkInDate = value;
+			adjustCheckOutDate();
+		} else {
+			checkOutDate = value;
+		}
+		showDatePicker = false;
+	}
+	
+	function adjustCheckOutDate() {
+		if (checkOutDate && checkOutDate <= checkInDate) {
+			const nextDay = new Date(checkInDate);
+			nextDay.setDate(nextDay.getDate() + 1);
+			checkOutDate = formatDate(nextDay);
+		}
+	}
+	
+	function handleCheckInChange(event) {
+		handleDateChange('checkin', event.target.value);
+	}
+	
+	function handleCheckOutChange(event) {
+		handleDateChange('checkout', event.target.value);
+	}
+	
+	// ===== FUNCIONES DE HUÉSPEDES =====
+	function updateGuests(type, delta) {
+		if (type === 'adults') {
+			adults = Math.max(1, adults + delta);
+		} else if (type === 'children') {
+			children = Math.max(0, children + delta);
+		} else if (type === 'rooms') {
+			rooms = Math.max(1, rooms + delta);
+		}
+	}
+	
+	function getGuestText() {
+		const guestText = adults > 1 ? 'adultos' : 'adulto';
+		const childText = children > 1 ? 'niños' : 'niño';
+		const roomText = rooms > 1 ? 'habitaciones' : 'habitación';
+		
+		let text = children > 0 
+			? `${adults} ${guestText} - ${children} ${childText} - ${rooms} ${roomText}`
+			: `${adults} ${guestText} - ${rooms} ${roomText}`;
+		
+		if (pets) {
+			text += ' - Con mascotas';
+		}
+		
+		return text;
+	}
+	
+	// ===== FUNCIONES DE VALIDACIÓN =====
+	function validateForm() {
+		const validations = [
+			{ condition: !query.trim(), message: 'Por favor selecciona un destino' },
+			{ condition: !checkInDate, message: 'Por favor selecciona la fecha de entrada' },
+			{ condition: !checkOutDate, message: 'Por favor selecciona la fecha de salida' },
+			{ condition: new Date(checkOutDate) <= new Date(checkInDate), message: 'La fecha de salida debe ser posterior a la de entrada' }
+		];
+		
+		for (const validation of validations) {
+			if (validation.condition) {
+				errorMessage = validation.message;
+				return false;
+			}
+		}
+		
+		return true;
+	}
+	
+	// ===== FUNCIONES DE BÚSQUEDA =====
+	function handleSearch() {
+		if (!validateForm()) return;
+		
+		const searchData = {
+			destination: query,
+			checkIn: checkInDate,
+			checkOut: checkOutDate,
+			adults,
+			children,
+			rooms,
+			pets
+		};
+		
+		console.log('Buscando con datos:', searchData);
+		// Aquí se implementaría la lógica de búsqueda real
+		alert('Búsqueda realizada con éxito! (Esta es una demo)');
+	}
+	
+	// ===== FUNCIONES DE UI =====
+	function handleGuestSelectionDone() {
+		saveGuestDataToStorage();
+		showGuestPicker = false;
+	}
+	
+	function saveGuestDataToStorage() {
+		if (typeof window !== 'undefined') {
+			const guestData = { adults, children, rooms, pets };
+			localStorage.setItem('guestSelection', JSON.stringify(guestData));
+		}
+	}
+	
+	// ===== FUNCIONES DE INICIALIZACIÓN =====
+	function initializeDates() {
+		checkInDate = getTodayDate();
+		checkOutDate = getTomorrowDate();
+	}
+	
+	function loadGuestData() {
+		if (typeof window !== 'undefined') {
+			const savedGuestData = localStorage.getItem('guestSelection');
+			if (savedGuestData) {
+				try {
+					const guestData = JSON.parse(savedGuestData);
+					adults = guestData.adults || 2;
+					children = guestData.children || 0;
+					rooms = guestData.rooms || 1;
+					pets = guestData.pets || false;
+				} catch (error) {
+					console.error('Error cargando datos de huéspedes:', error);
+				}
+			}
+		}
+	}
+	
+	function setupEventListeners() {
+		document.addEventListener('click', handleClickOutside);
+	}
+	
+	// ===== FUNCIONES DE EVENTOS =====
+	function handleClickOutside(event) {
+		const target = event.target;
+		
+		if (dropdown && !dropdown.contains(target) && !input?.contains(target)) {
+			closeDropdown();
+		}
+		if (showDatePicker && !target.closest('.date-picker')) {
+			showDatePicker = false;
+		}
+		if (showGuestPicker && !target.closest('.guest-picker')) {
+			showGuestPicker = false;
+		}
+	}
+	
+	onMount(() => {
+		initializeDates();
+		loadGuestData();
+		setupEventListeners();
+		
+		return () => {
+			document.removeEventListener('click', handleClickOutside);
+		};
+	});
+</script>
+
+<!-- Mensaje de error -->
+{#if errorMessage}
+	<div class="absolute top-0 left-0 right-0 mx-3 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-2 z-40">
+		<div class="flex items-center">
+			<svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+				<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+			</svg>
+			{errorMessage}
+		</div>
+	</div>
+{/if}
+
+<div class="bg-[#ffb700] rounded-xl p-1 grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-1 absolute bottom-0 transform translate-y-1/2 left-0 right-0 mx-3">
+	<!-- Campo de destino con autocompletado -->
+	<div class="px-3 py-1 bg-white rounded-lg flex flex-row items-center gap-0 text-sm relative">
+		<img src="/assets/search/alojamiento_icon.png" class="w-[25px]" alt="Destino"/>
+		<div class="w-full relative">
+			<input 
+				bind:this={input}
+				bind:value={query}
+				on:input={handleInput}
+				type="text" 
+				placeholder="¿A dónde vas?" 
+				class="w-full p-3 rounded-md focus:outline-none" 
+				autocomplete="off"
+				aria-label="Destino de viaje"
+			/>
+		</div>
+		<!-- Dropdown de resultados -->
+		{#if showDropdown}
+			<div bind:this={dropdown} class="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto mt-1 w-full dropdown">
+				{#if isLoading}
+					<div class="p-3 text-center text-gray-500">
+						<div class="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-[#003b95] mx-auto mb-2"></div>
+						Buscando destinos...
+					</div>
+				{:else if errorMessage}
+					<div class="p-3 text-center text-red-500">
+						{errorMessage}
+					</div>
+				{:else if results.length === 0 && query.trim().length > 1}
+					<div class="p-3 text-center text-gray-500">
+						No se encontraron destinos
+					</div>
+				{:else}
+					{#each results as destination (destination.dest_id)}
+						<button 
+							class="destination-item w-full text-left p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 group transition-all duration-150 ease-in-out" 
+							on:click={() => selectDestination(destination)}
+							aria-label="Seleccionar {destination.name}"
+						>
+							<div class="flex items-center gap-4">
+								<div class="flex-shrink-0 w-8 h-8 flex items-center justify-center">
+									<img 
+										src={destination.dest_type === 'city' 
+											? '/assets/search/ubicacion_icon.png' 
+											: '/assets/search/alojamiento_icon.png'} 
+										class={destination.dest_type === 'city' ? 'h-6' : 'w-6'} 
+										alt="Destino"
+									/>
+								</div>
+								<div class="flex-1 min-w-0">
+									<div class="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors duration-150">
+										{destination.name}
+									</div>
+									<div class="text-sm text-gray-500 truncate mt-0.5">
+										{#if destination.dest_type === 'city' && destination.hotels}
+											{destination.country} • {destination.hotels} hoteles
+										{:else if destination.dest_type === 'hotel'}
+											{destination.city_name}, {destination.country}
+										{:else}
+											{destination.country}
+										{/if}
+									</div>
+								</div>
+							</div>
+						</button>
+					{/each}
+				{/if}
+			</div>
+		{/if}
+	</div>
+	
+	<!-- Campo de fechas -->
+	<div class="px-3 py-1 bg-white rounded-lg flex flex-row items-center gap-0 text-sm relative date-picker">
+		<img src="/assets/search/fecha_icon.png" class="w-[25px]" alt="Fechas"/>
+		<button 
+			type="button"
+			class="w-full p-3 rounded-md focus:outline-none text-left"
+			on:click={() => showDatePicker = !showDatePicker}
+			aria-label="Seleccionar fechas"
+		>
+			{#if checkInDate && checkOutDate}
+				{new Date(checkInDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} - {new Date(checkOutDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}
+			{:else}
+				Fecha de entrada - Fecha de salida
+			{/if}
+		</button>
+		
+		{#if showDatePicker}
+			<div class="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-4 mt-1">
+				<div class="grid grid-cols-2 gap-4">
+					<div>
+						<label for="checkin-date" class="block text-sm font-medium text-gray-700 mb-2">Entrada</label>
+						<input 
+							id="checkin-date"
+							type="date" 
+							bind:value={checkInDate}
+							on:change={handleCheckInChange}
+							min={getTodayDate()}
+							class="w-full p-2 border border-gray-300 rounded-md focus:outline-none"
+						/>
+					</div>
+					<div>
+						<label for="checkout-date" class="block text-sm font-medium text-gray-700 mb-2">Salida</label>
+						<input 
+							id="checkout-date"
+							type="date" 
+							bind:value={checkOutDate}
+							on:change={handleCheckOutChange}
+							min={checkInDate || getTodayDate()}
+							class="w-full p-2 border border-gray-300 rounded-md focus:outline-none"
+						/>
+					</div>
+				</div>
+			</div>
+		{/if}
+	</div>
+	
+	<!-- Campo de huéspedes -->
+	<div class="px-3 py-1 bg-white rounded-lg flex flex-row items-center gap-0 text-sm relative guest-picker">
+		<img src="/assets/search/huesped_icon.png" class="w-[25px]" alt="Huéspedes"/>
+		<button 
+			type="button"
+			class="w-full p-3 rounded-md focus:outline-none text-left"
+			on:click={() => showGuestPicker = !showGuestPicker}
+			aria-label="Seleccionar huéspedes"
+		>
+			{guestText}
+		</button>
+		
+		{#if showGuestPicker}
+			<div class="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-4 mt-1">
+				<div class="space-y-4">
+					<div class="flex items-center justify-between">
+						<div>
+							<div class="font-medium text-gray-900">Adultos</div>
+							<div class="text-sm text-gray-500">Mayores de 18 años</div>
+						</div>
+						<div class="flex items-center gap-3">
+							<button 
+								type="button"
+								on:click={() => updateGuests('adults', -1)}
+								disabled={adults <= 1}
+								class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+							>-</button>
+							<span class="w-8 text-center">{adults}</span>
+							<button 
+								type="button"
+								on:click={() => updateGuests('adults', 1)}
+								class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+							>+</button>
+						</div>
+					</div>
+					
+					<div class="flex items-center justify-between">
+						<div>
+							<div class="font-medium text-gray-900">Niños</div>
+							<div class="text-sm text-gray-500">De 0 a 17 años</div>
+						</div>
+						<div class="flex items-center gap-3">
+							<button 
+								type="button"
+								on:click={() => updateGuests('children', -1)}
+								disabled={children <= 0}
+								class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+							>-</button>
+							<span class="w-8 text-center">{children}</span>
+							<button 
+								type="button"
+								on:click={() => updateGuests('children', 1)}
+								class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+							>+</button>
+						</div>
+					</div>
+					
+					<div class="flex items-center justify-between">
+						<div>
+							<div class="font-medium text-gray-900">Habitaciones</div>
+						</div>
+						<div class="flex items-center gap-3">
+							<button 
+								type="button"
+								on:click={() => updateGuests('rooms', -1)}
+								disabled={rooms <= 1}
+								class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+							>-</button>
+							<span class="w-8 text-center">{rooms}</span>
+							<button 
+								type="button"
+								on:click={() => updateGuests('rooms', 1)}
+								class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+							>+</button>
+						</div>
+					</div>
+					
+					<!-- Separador -->
+					<hr class="border-gray-200 my-4" />
+					
+					<!-- Switch de mascotas -->
+					<div class="flex items-center justify-between flex-col gap-4">
+						<div class="w-full flex flex-row items-center justify-between">
+							<div class="font-medium text-gray-900">¿Viajas con mascotas?</div>
+							<label class="relative inline-flex items-center cursor-pointer">
+								<input 
+									type="checkbox" 
+									bind:checked={pets}
+									class="sr-only peer"
+								/>
+								<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+							</label>
+						</div>
+						<div class="text-xs text-gray-500 mt-1">
+							Los animales de servicio no se consideran mascotas. 
+							<button type="button" class="text-blue-600 hover:underline">Más info sobre viajar con animales de servicio.</button>
+						</div>
+					</div>
+					
+					<!-- Botón Listo -->
+					<div class="pt-4">
+						<button 
+							type="button"
+							on:click={handleGuestSelectionDone}
+							class="w-full bg-blue-600 text-white py-2 px-4 rounded-md font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors"
+						>
+							Listo
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+	</div>
+	
+	<!-- Botón de búsqueda -->
+	<button 
+		type="button"
+		class="px-4 py-1 bg-[#006ce4] rounded-lg flex flex-row items-center justify-center text-sm cursor-pointer hover:bg-[#005bb5] transition-colors duration-300 whitespace-nowrap"
+		on:click={handleSearch}
+		aria-label="Buscar alojamientos"
+	>
+		<p class="font-semibold text-white text-lg">Buscar</p>
+	</button>
+</div>
+
+<style>
+	/* Estilos del dropdown */
+	.destination-item {
+		transition: all 0.15s ease-in-out;
+	}
+	
+	.destination-item:hover {
+		background-color: #f8fafc;
+		transform: translateX(2px);
+	}
+	
+	.destination-item:last-child {
+		border-bottom: none;
+	}
+	
+	/* Animación de carga */
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	
+	.animate-spin {
+		animation: spin 1s linear infinite;
+	}
+	
+	/* Estilos del dropdown */
+	.dropdown {
+		backdrop-filter: blur(10px);
+		border: 1px solid rgba(229, 231, 235, 0.8);
+		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+	}
+	
+	/* Scrollbar personalizado */
+	.dropdown::-webkit-scrollbar {
+		width: 6px;
+	}
+	
+	.dropdown::-webkit-scrollbar-track {
+		background: #f1f5f9;
+		border-radius: 3px;
+	}
+	
+	.dropdown::-webkit-scrollbar-thumb {
+		background: #cbd5e1;
+		border-radius: 3px;
+	}
+	
+	.dropdown::-webkit-scrollbar-thumb:hover {
+		background: #94a3b8;
+	}
+</style>

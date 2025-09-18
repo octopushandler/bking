@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="description" content="Reserva alojamientos, vuelos, atracciones y más con Booki. Tu plataforma de confianza para planificar viajes únicos. Encuentra las mejores ofertas en hoteles y destinos." />
+		<meta name="keywords" content="reservas, hoteles, vuelos, viajes, alojamiento, booking, turismo, vacaciones" />
+		<meta name="author" content="Booki" />
+		<meta name="robots" content="index, follow" />
+		
+		<!-- Open Graph / Facebook -->
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content="https://booki-svelte.vercel.app/" />
+		<meta property="og:title" content="Booki - Reserva hoteles, vuelos y más" />
+		<meta property="og:description" content="Reserva alojamientos, vuelos, atracciones y más con Booki. Tu plataforma de confianza para planificar viajes únicos." />
+		<meta property="og:image" content="%sveltekit.assets%/og-image.jpg" />
+		
+		<!-- Twitter -->
+		<meta property="twitter:card" content="summary_large_image" />
+		<meta property="twitter:url" content="https://booki-svelte.vercel.app/" />
+		<meta property="twitter:title" content="Booki - Reserva hoteles, vuelos y más" />
+		<meta property="twitter:description" content="Reserva alojamientos, vuelos, atracciones y más con Booki. Tu plataforma de confianza para planificar viajes únicos." />
+		<meta property="twitter:image" content="%sveltekit.assets%/og-image.jpg" />
+		
+		<title>%sveltekit.title%</title>
+		
+		<!-- Preconnect para optimización -->
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link rel="preconnect" href="https://booking-com.p.rapidapi.com">
+		
+		<!-- Fuentes optimizadas -->
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+		
+		<!-- Schema.org structured data -->
+		<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@type": "WebSite",
+			"name": "Booki",
+			"description": "Reserva alojamientos, vuelos, atracciones y más con Booki",
+			"url": "https://booki-svelte.vercel.app/",
+			"potentialAction": {
+				"@type": "SearchAction",
+				"target": "https://booki-svelte.vercel.app/search?q={search_term_string}",
+				"query-input": "required name=search_term_string"
+			}
+		}
+		</script>
+		
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<!-- Skip to main content para accesibilidad -->
+		<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-md z-50">
+			Saltar al contenido principal
+		</a>
+		
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>
