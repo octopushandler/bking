@@ -104,6 +104,261 @@ export interface Hotel {
 	url: string;
 }
 
+// Tipos para detalles de hotel (respuesta del endpoint v2 /hotels/details)
+export interface HotelDetails {
+	hotel_id: number;
+	hotel_name: string;
+	hotel_name_trans: string;
+	accommodation_type: number;
+	accommodation_type_name: string;
+	url: string;
+	hotel_address_line: string;
+	country_trans: string;
+	countrycode: string;
+	district: string;
+	zip: string;
+	city: string;
+	city_name_en: string;
+	city_trans: string;
+	city_in_trans: string;
+	address: string;
+	address_trans: string;
+	timezone: string;
+	latitude: number;
+	longitude: number;
+	currency_code: string;
+	review_nr: number;
+	class_is_estimated: number;
+	hotel_facilities: string;
+	facilities_block: {
+		name: string;
+		type: string;
+		facilities: Array<{
+			name: string;
+			icon: string;
+		}>;
+	};
+	property_highlight_strip: any;
+	top_ufi_benefits: Array<{
+		icon: string;
+		translated_name: string;
+	}>;
+	preferences: any[];
+	block: Array<{
+		block_id: string;
+		room_id: number;
+		room_name: string;
+		name: string;
+		name_without_policy: string;
+		room_surface_in_m2: number;
+		room_surface_in_feet2: number;
+		max_occupancy: string;
+		nr_adults: number;
+		nr_children: number;
+		children_ages: number[];
+		room_count: number;
+		refundable: number;
+		refundable_until: string;
+		breakfast_included: number;
+		all_inclusive: number;
+		half_board: number;
+		full_board: number;
+		lunch_included: number;
+		dinner_included: number;
+		smoking: number;
+		product_price_breakdown: {
+			gross_amount: {
+				value: number;
+				currency: string;
+				amount_rounded: string;
+				amount_unrounded: string;
+			};
+			all_inclusive_amount: {
+				value: number;
+				currency: string;
+				amount_rounded: string;
+				amount_unrounded: string;
+			};
+			net_amount: {
+				value: number;
+				currency: string;
+				amount_rounded: string;
+				amount_unrounded: string;
+			};
+			included_taxes_and_charges_amount: {
+				value: number;
+				currency: string;
+				amount_rounded: string;
+				amount_unrounded: string;
+			};
+			items: Array<{
+				name: string;
+				kind: string;
+				inclusion_type: string;
+				item_amount: {
+					value: number;
+					currency: string;
+					amount_rounded: string;
+					amount_unrounded: string;
+				};
+				base: {
+					kind: string;
+					base_amount?: number;
+					percentage?: number;
+				};
+				details?: string;
+				identifier?: string;
+			}>;
+			benefits?: Array<{
+				name: string;
+				kind: string;
+				badge_variant: string;
+				icon: any;
+				identifier: string;
+				details: string;
+			}>;
+			strikethrough_amount?: {
+				value: number;
+				currency: string;
+				amount_rounded: string;
+				amount_unrounded: string;
+			};
+			discounted_amount?: {
+				value: number;
+				currency: string;
+				amount_rounded: string;
+				amount_unrounded: string;
+			};
+			all_inclusive_amount_hotel_currency?: {
+				value: number;
+				currency: string;
+				amount_rounded: string;
+				amount_unrounded: string;
+			};
+			gross_amount_hotel_currency?: {
+				value: number;
+				currency: string;
+				amount_rounded: string;
+				amount_unrounded: string;
+			};
+		};
+		paymentterms: {
+			prepayment: {
+				type: string;
+				type_translation: string;
+				description: string;
+				timeline: {
+					stages: Array<{
+						text: string;
+						amount: string;
+						amount_pretty: string;
+						is_free: number;
+						after_checkin?: number;
+					}>;
+				};
+			};
+			cancellation: {
+				type: string;
+				type_translation: string;
+				description: string;
+				timeline: {
+					stages: Array<{
+						text: string;
+						text_refundable: string;
+						limit_until: string;
+						limit_until_date: string;
+						fee: number;
+						fee_pretty: string;
+						is_free: number;
+					}>;
+				};
+			};
+		};
+		block_text: {
+			policies: Array<{
+				content: string;
+				class: string;
+				mealplan_vector?: string;
+				currencycode?: string;
+				price?: number;
+			}>;
+		};
+		detail_mealplan: Array<{
+			icon: string;
+			price?: number;
+			title: string;
+			currency?: string;
+		}>;
+		mealplan: string;
+	}>;
+	composite_price_breakdown: {
+		gross_amount: {
+			value: number;
+			currency: string;
+			amount_rounded: string;
+			amount_unrounded: string;
+		};
+		all_inclusive_amount: {
+			value: number;
+			currency: string;
+			amount_rounded: string;
+			amount_unrounded: string;
+		};
+		net_amount: {
+			value: number;
+			currency: string;
+			amount_rounded: string;
+			amount_unrounded: string;
+		};
+		included_taxes_and_charges_amount: {
+			value: number;
+			currency: string;
+			amount_rounded: string;
+			amount_unrounded: string;
+		};
+		charges_details: {
+			mode: string;
+			amount: {
+				value: number;
+				currency: string;
+			};
+			translated_copy: string;
+		};
+		benefits?: Array<{
+			name: string;
+			kind: string;
+			badge_variant: string;
+			icon: any;
+			identifier: string;
+			details: string;
+		}>;
+		strikethrough_amount?: {
+			value: number;
+			currency: string;
+			amount_rounded: string;
+			amount_unrounded: string;
+		};
+		discounted_amount?: {
+			value: number;
+			currency: string;
+			amount_rounded: string;
+			amount_unrounded: string;
+		};
+		all_inclusive_amount_hotel_currency?: {
+			value: number;
+			currency: string;
+			amount_rounded: string;
+			amount_unrounded: string;
+		};
+		gross_amount_hotel_currency?: {
+			value: number;
+			currency: string;
+			amount_rounded: string;
+			amount_unrounded: string;
+		};
+	};
+}
+
 export interface HotelSearchResponse {
 	primary_count: number;
 	count: number;
@@ -213,6 +468,19 @@ export function buildHotelSearchUrl(params: HotelSearchParams): string {
     }
     
     return `https://${BOOKING_API_CONFIG.HEADERS['x-rapidapi-host']}/v1/hotels/search?${searchParams.toString()}`;
+}
+
+// Función helper para construir la URL de detalles de hotel (v2)
+export function buildHotelDetailsUrl(hotelId: number, checkinDate: string, checkoutDate: string): string {
+    const params = new URLSearchParams({
+        hotel_id: hotelId.toString(),
+        checkin_date: checkinDate,
+        checkout_date: checkoutDate,
+        locale: 'es-mx',
+        currency: 'COP'
+    });
+    
+    return `https://${BOOKING_API_CONFIG.HEADERS['x-rapidapi-host']}/v2/hotels/details?${params.toString()}`;
 }
 
 // Función helper para obtener la configuración de un tipo de destino

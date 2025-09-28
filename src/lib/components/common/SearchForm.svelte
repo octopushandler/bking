@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { BOOKING_API_CONFIG, buildSearchUrl, getDestinationTypeConfig } from '$lib/config/api';
@@ -286,40 +286,92 @@
 			saveDestinationToStorage(selectedDestination);
 		}
 		
+		// Si no hay destino seleccionado, hacer búsqueda automática
 		if (!selectedDestination) {
-			errorMessage = 'Por favor selecciona un destino de la lista';
-			return;
+			console.log('🔍 No hay destino seleccionado, realizando búsqueda automática...');
+			selectedDestination = await performAutoSearch(query.trim());
+			
+			if (!selectedDestination) {
+				errorMessage = 'No se encontraron destinos para tu búsqueda. Intenta con otro término.';
+				return;
+			}
 		}
 		
-		// Construir parámetros para la URL
-		const urlParams = new URLSearchParams({
-			dest_id: selectedDestination.dest_id,
-			destination_name: selectedDestination.name,
-			checkin_date: checkInDate,
-			checkout_date: checkOutDate,
-			adults_number: adults.toString(),
-			children_number: children.toString(),
-			room_number: rooms.toString()
-		});
+		// Determinar el tipo de destino y redirigir apropiadamente
+		console.log('🎯 Destino seleccionado:', selectedDestination);
 		
-		// Mostrar filtros aplicados en consola (debug)
-		console.log('\n🎯 ===== FILTROS APLICADOS =====');
-		console.log(`📍 Destino: ${selectedDestination.name} (${selectedDestination.dest_id})`);
-		console.log(`📅 Fechas: ${checkInDate} → ${checkOutDate}`);
-		console.log(`👥 Huéspedes: ${adults} adultos${children > 0 ? `, ${children} niños` : ''}`);
-		console.log(`🏨 Habitaciones: ${rooms}`);
-		console.log(`💰 Moneda: COP`);
-		console.log(`📊 Ordenar por: Popularidad`);
-		console.log(`🔗 URL: /resultados?${urlParams.toString()}`);
-		console.log('================================\n');
+		if (selectedDestination.dest_type === 'hotel') {
+			// Si es un hotel, ir a detalles del hotel
+			console.log('🏨 Destino es un hotel, redirigiendo a detalles...');
+			const urlParams = new URLSearchParams({
+				checkin_date: checkInDate,
+				checkout_date: checkOutDate,
+				adults_number: adults.toString(),
+				children_number: children.toString(),
+				room_number: rooms.toString()
+			});
+			
+			const url = `/hotel/${selectedDestination.dest_id}?${urlParams.toString()}`;
+			console.log('🔗 URL de detalles:', url);
+			window.location.href = url;
+		} else {
+			// Si es una ciudad, landmark u otro tipo, ir a resultados de búsqueda
+			console.log(`🏙️ Destino es ${selectedDestination.dest_type}, redirigiendo a resultados...`);
+			const urlParams = new URLSearchParams({
+				dest_id: selectedDestination.dest_id,
+				destination_name: selectedDestination.name,
+				checkin_date: checkInDate,
+				checkout_date: checkOutDate,
+				adults_number: adults.toString(),
+				children_number: children.toString(),
+				room_number: rooms.toString()
+			});
+			
+			const url = `/resultados?${urlParams.toString()}`;
+			console.log('🔗 URL de resultados:', url);
+			window.location.href = url;
+		}
+	}
+	
+	// Función para realizar búsqueda automática
+	async function performAutoSearch(searchQuery: string) {
+		if (!searchQuery.trim()) return null;
 		
-		// Navegar a la página de resultados
-		console.log('🚀 Navegando a resultados...');
-		const url = `/resultados?${urlParams.toString()}`;
-		console.log('🔗 URL completa:', url);
-		
-		// Usar window.location directamente para asegurar que funcione
-		window.location.href = url;
+		try {
+			console.log('🔍 Realizando búsqueda automática para:', searchQuery);
+			
+			const response = await fetch(buildSearchUrl(searchQuery), {
+				method: 'GET',
+				headers: BOOKING_API_CONFIG.HEADERS
+			});
+			
+			if (!response.ok) {
+				throw new Error(`Error ${response.status}: ${response.statusText}`);
+			}
+			
+			const data = await response.json();
+			const filteredResults = data.filter(destination => 
+				destination.dest_type === 'city' || destination.dest_type === 'hotel'
+			);
+			
+			if (filteredResults.length === 0) {
+				console.log('❌ No se encontraron resultados');
+				return null;
+			}
+			
+			// Seleccionar el primer resultado
+			const selectedDestination = filteredResults[0];
+			console.log('✅ Destino seleccionado automáticamente:', selectedDestination);
+			
+			// Guardar en localStorage para futuras búsquedas
+			saveDestinationToStorage(selectedDestination);
+			
+			return selectedDestination;
+			
+		} catch (error) {
+			console.error('Error en búsqueda automática:', error);
+			return null;
+		}
 	}
 	
 	// ===== FUNCIONES DE UI =====

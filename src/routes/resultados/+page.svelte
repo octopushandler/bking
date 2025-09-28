@@ -145,7 +145,7 @@
 </Header>
 
 <!-- Contenido principal -->
-<main class="min-h-screen bg-gray-50">
+<main class="min-h-screen max-w-[1100px] mx-auto mt-[50px]">
 	<div class="container mx-auto px-4 py-8">
 		<!-- Título -->
 		<div class="mb-8">
