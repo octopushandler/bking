@@ -1,6 +1,24 @@
 <script>
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { BOOKING_API_CONFIG, buildSearchUrl, getDestinationTypeConfig } from '$lib/config/api';
+	import DatePicker from './DatePicker.svelte';
+	
+	// ===== PROPS =====
+	export let initialData = {
+		destination: null,
+		checkInDate: '',
+		checkOutDate: '',
+		adults: 2,
+		children: 0,
+		rooms: 1,
+		pets: false
+	};
+	
+	// ===== REACTIVIDAD PARA DATOS INICIALES =====
+	$: if (initialData) {
+		updateFormData();
+	}
 	
 	// ===== CONFIGURACIÓN =====
 	const { SEARCH_CONFIG } = BOOKING_API_CONFIG;
@@ -31,7 +49,10 @@
 	let guestText = '';
 	
 	// ===== REACTIVIDAD =====
-	$: guestText = getGuestText();
+	$: {
+		guestText = getGuestText();
+		console.log('guestText updated:', { adults, children, rooms, pets, guestText });
+	}
 	
 	// ===== FUNCIONES DE BÚSQUEDA =====
 	function handleInput(event) {
@@ -126,6 +147,21 @@
 		return date.toISOString().split('T')[0];
 	}
 	
+	function formatDateForDisplay(dateString) {
+		// Parsear fecha en zona horaria local para evitar desplazamientos
+		const [year, month, day] = dateString.split('-').map(Number);
+		const date = new Date(year, month - 1, day);
+		
+		// Formato: sáb, 8 nov
+		const dayOfWeek = date.toLocaleDateString('es-ES', { weekday: 'short' });
+		const dayOfMonth = date.getDate();
+		const monthShort = date.toLocaleDateString('es-ES', { month: 'short' });
+		
+		const formatted = `${dayOfWeek}, ${dayOfMonth} ${monthShort}`;
+		console.log('Formatting date for display:', { dateString, formatted });
+		return formatted;
+	}
+	
 	function getTodayDate() {
 		return formatDate(new Date());
 	}
@@ -162,8 +198,20 @@
 		handleDateChange('checkout', event.target.value);
 	}
 	
+	// ===== FUNCIONES DEL DATEPICKER =====
+	function handleDatePickerChange(event) {
+		checkInDate = event.detail.checkIn;
+		checkOutDate = event.detail.checkOut;
+		showDatePicker = false;
+	}
+	
+	function closeDatePicker() {
+		showDatePicker = false;
+	}
+	
 	// ===== FUNCIONES DE HUÉSPEDES =====
 	function updateGuests(type, delta) {
+		console.log('updateGuests called:', { type, delta, adults, children, rooms, pets });
 		if (type === 'adults') {
 			adults = Math.max(1, adults + delta);
 		} else if (type === 'children') {
@@ -171,6 +219,7 @@
 		} else if (type === 'rooms') {
 			rooms = Math.max(1, rooms + delta);
 		}
+		console.log('After update:', { adults, children, rooms, pets });
 	}
 	
 	function getGuestText() {
@@ -191,6 +240,8 @@
 	
 	// ===== FUNCIONES DE VALIDACIÓN =====
 	function validateForm() {
+		console.log('🔍 Validando formulario:', { query, checkInDate, checkOutDate, adults, children, rooms });
+		
 		const validations = [
 			{ condition: !query.trim(), message: 'Por favor selecciona un destino' },
 			{ condition: !checkInDate, message: 'Por favor selecciona la fecha de entrada' },
@@ -200,31 +251,75 @@
 		
 		for (const validation of validations) {
 			if (validation.condition) {
+				console.log('❌ Validación fallida:', validation.message);
 				errorMessage = validation.message;
 				return false;
 			}
 		}
 		
+		console.log('✅ Formulario válido');
 		return true;
 	}
 	
 	// ===== FUNCIONES DE BÚSQUEDA =====
-	function handleSearch() {
+	async function handleSearch() {
 		if (!validateForm()) return;
 		
-		const searchData = {
-			destination: query,
-			checkIn: checkInDate,
-			checkOut: checkOutDate,
-			adults,
-			children,
-			rooms,
-			pets
-		};
+		// Obtener el destino seleccionado del localStorage o usar el destino actual
+		let selectedDestination = null;
+		if (typeof window !== 'undefined') {
+			const savedDestination = localStorage.getItem('selectedDestination');
+			if (savedDestination) {
+				try {
+					selectedDestination = JSON.parse(savedDestination);
+				} catch (error) {
+					console.error('Error parsing saved destination:', error);
+				}
+			}
+		}
 		
-		console.log('Buscando con datos:', searchData);
-		// Aquí se implementaría la lógica de búsqueda real
-		alert('Búsqueda realizada con éxito! (Esta es una demo)');
+		// Si no hay destino guardado pero hay uno en initialData, usarlo
+		if (!selectedDestination && initialData.destination) {
+			selectedDestination = initialData.destination;
+			console.log('📍 Usando destino de initialData:', selectedDestination);
+			// Guardar en localStorage para futuras búsquedas
+			saveDestinationToStorage(selectedDestination);
+		}
+		
+		if (!selectedDestination) {
+			errorMessage = 'Por favor selecciona un destino de la lista';
+			return;
+		}
+		
+		// Construir parámetros para la URL
+		const urlParams = new URLSearchParams({
+			dest_id: selectedDestination.dest_id,
+			destination_name: selectedDestination.name,
+			checkin_date: checkInDate,
+			checkout_date: checkOutDate,
+			adults_number: adults.toString(),
+			children_number: children.toString(),
+			room_number: rooms.toString()
+		});
+		
+		// Mostrar filtros aplicados en consola (debug)
+		console.log('\n🎯 ===== FILTROS APLICADOS =====');
+		console.log(`📍 Destino: ${selectedDestination.name} (${selectedDestination.dest_id})`);
+		console.log(`📅 Fechas: ${checkInDate} → ${checkOutDate}`);
+		console.log(`👥 Huéspedes: ${adults} adultos${children > 0 ? `, ${children} niños` : ''}`);
+		console.log(`🏨 Habitaciones: ${rooms}`);
+		console.log(`💰 Moneda: COP`);
+		console.log(`📊 Ordenar por: Popularidad`);
+		console.log(`🔗 URL: /resultados?${urlParams.toString()}`);
+		console.log('================================\n');
+		
+		// Navegar a la página de resultados
+		console.log('🚀 Navegando a resultados...');
+		const url = `/resultados?${urlParams.toString()}`;
+		console.log('🔗 URL completa:', url);
+		
+		// Usar window.location directamente para asegurar que funcione
+		window.location.href = url;
 	}
 	
 	// ===== FUNCIONES DE UI =====
@@ -242,12 +337,24 @@
 	
 	// ===== FUNCIONES DE INICIALIZACIÓN =====
 	function initializeDates() {
-		checkInDate = getTodayDate();
-		checkOutDate = getTomorrowDate();
+		if (initialData.checkInDate && initialData.checkOutDate) {
+			checkInDate = initialData.checkInDate;
+			checkOutDate = initialData.checkOutDate;
+		} else {
+			checkInDate = getTodayDate();
+			checkOutDate = getTomorrowDate();
+		}
 	}
 	
 	function loadGuestData() {
-		if (typeof window !== 'undefined') {
+		// Si hay datos iniciales, usarlos
+		if (initialData.adults || initialData.children || initialData.rooms || initialData.pets !== undefined) {
+			adults = initialData.adults || 2;
+			children = initialData.children || 0;
+			rooms = initialData.rooms || 1;
+			pets = initialData.pets || false;
+		} else if (typeof window !== 'undefined') {
+			// Si no hay datos iniciales, cargar del localStorage
 			const savedGuestData = localStorage.getItem('guestSelection');
 			if (savedGuestData) {
 				try {
@@ -261,6 +368,42 @@
 				}
 			}
 		}
+	}
+	
+	function loadDestinationData() {
+		if (initialData.destination) {
+			query = initialData.destination.name;
+			saveDestinationToStorage(initialData.destination);
+		}
+	}
+	
+	function updateFormData() {
+		console.log('🔄 Actualizando datos del SearchForm:', initialData);
+		
+		// Actualizar destino
+		if (initialData.destination) {
+			query = initialData.destination.name;
+			saveDestinationToStorage(initialData.destination);
+			console.log('📍 Destino actualizado:', initialData.destination.name);
+		}
+		
+		// Actualizar fechas
+		if (initialData.checkInDate && initialData.checkOutDate) {
+			checkInDate = initialData.checkInDate;
+			checkOutDate = initialData.checkOutDate;
+			console.log('📅 Fechas actualizadas:', checkInDate, '→', checkOutDate);
+		}
+		
+		// Actualizar huéspedes
+		if (initialData.adults !== undefined) adults = initialData.adults;
+		if (initialData.children !== undefined) children = initialData.children;
+		if (initialData.rooms !== undefined) rooms = initialData.rooms;
+		if (initialData.pets !== undefined) pets = initialData.pets;
+		
+		console.log('👥 Huéspedes actualizados:', { adults, children, rooms, pets });
+		
+		// Guardar datos de huéspedes en localStorage también
+		saveGuestDataToStorage();
 	}
 	
 	function setupEventListeners() {
@@ -285,6 +428,7 @@
 	onMount(() => {
 		initializeDates();
 		loadGuestData();
+		loadDestinationData();
 		setupEventListeners();
 		
 		return () => {
@@ -323,7 +467,7 @@
 		</div>
 		<!-- Dropdown de resultados -->
 		{#if showDropdown}
-			<div bind:this={dropdown} class="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto mt-1 w-full dropdown">
+			<div bind:this={dropdown} class="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl z-[99999] max-h-80 overflow-y-auto overflow-x-hidden mt-1 w-full dropdown">
 				{#if isLoading}
 					<div class="p-3 text-center text-gray-500">
 						<div class="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-[#003b95] mx-auto mb-2"></div>
@@ -386,40 +530,20 @@
 			aria-label="Seleccionar fechas"
 		>
 			{#if checkInDate && checkOutDate}
-				{new Date(checkInDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} - {new Date(checkOutDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}
+				{formatDateForDisplay(checkInDate)} - {formatDateForDisplay(checkOutDate)}
 			{:else}
 				Fecha de entrada - Fecha de salida
 			{/if}
 		</button>
 		
-		{#if showDatePicker}
-			<div class="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-4 mt-1">
-				<div class="grid grid-cols-2 gap-4">
-					<div>
-						<label for="checkin-date" class="block text-sm font-medium text-gray-700 mb-2">Entrada</label>
-						<input 
-							id="checkin-date"
-							type="date" 
-							bind:value={checkInDate}
-							on:change={handleCheckInChange}
-							min={getTodayDate()}
-							class="w-full p-2 border border-gray-300 rounded-md focus:outline-none"
-						/>
-					</div>
-					<div>
-						<label for="checkout-date" class="block text-sm font-medium text-gray-700 mb-2">Salida</label>
-						<input 
-							id="checkout-date"
-							type="date" 
-							bind:value={checkOutDate}
-							on:change={handleCheckOutChange}
-							min={checkInDate || getTodayDate()}
-							class="w-full p-2 border border-gray-300 rounded-md focus:outline-none"
-						/>
-					</div>
-				</div>
-			</div>
-		{/if}
+		<DatePicker 
+			{checkInDate}
+			{checkOutDate}
+			isOpen={showDatePicker}
+			minDate={new Date()}
+			on:dateChange={handleDatePickerChange}
+			on:close={closeDatePicker}
+		/>
 	</div>
 	
 	<!-- Campo de huéspedes -->
@@ -427,7 +551,7 @@
 		<img src="/assets/search/huesped_icon.png" class="w-[25px]" alt="Huéspedes"/>
 		<button 
 			type="button"
-			class="w-full p-3 rounded-md focus:outline-none text-left"
+			class="w-full p-3 rounded-md focus:outline-none text-left text-nowrap overflow-hidden"
 			on:click={() => showGuestPicker = !showGuestPicker}
 			aria-label="Seleccionar huéspedes"
 		>
@@ -435,7 +559,7 @@
 		</button>
 		
 		{#if showGuestPicker}
-			<div class="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-4 mt-1">
+			<div class="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl z-[99999] p-4 mt-1">
 				<div class="space-y-4">
 					<div class="flex items-center justify-between">
 						<div>

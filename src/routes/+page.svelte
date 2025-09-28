@@ -1,8 +1,9 @@
 <script>
-	import Header from '$lib/components/Header.svelte';
-	import Navbar from '$lib/components/Navbar.svelte';
-	import Hero from '$lib/components/Hero.svelte';
-	import SearchForm from '$lib/components/SearchForm.svelte';
+	import Header from '$lib/components/common/Header.svelte';
+	import Navbar from '$lib/components/common/Navbar.svelte';
+	import Hero from '$lib/components/common/Hero.svelte';
+	import SearchForm from '$lib/components/common/SearchForm.svelte';
+    import IndexContent from '$lib/components/home/IndexContent.svelte';
 </script>
 
 <svelte:head>
@@ -17,5 +18,5 @@
 			<SearchForm />
 		</Hero>
 	</Header>
-	
+	<IndexContent />
 </main>

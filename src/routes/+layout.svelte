@@ -1,7 +1,7 @@
 <script>
 	import '../app.css';
-	import ErrorBoundary from '$lib/components/ErrorBoundary.svelte';
-	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import ErrorBoundary from '$lib/components/common/ErrorBoundary.svelte';
+	import LoadingSpinner from '$lib/components/common/LoadingSpinner.svelte';
 	import { appStore, appActions } from '$lib/stores/app';
 	
 	// Suscribirse al store para obtener el estado global
