@@ -3,7 +3,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { searchResultsStore, searchResultsActions } from '$lib/stores/searchResults';
-	import { BOOKING_API_CONFIG } from '$lib/config/api';
+	import { BOOKING_API_CONFIG, buildHotelSearchUrl } from '$lib/config/api';
 	import Header from '$lib/components/common/Header.svelte';
 	import Navbar from '$lib/components/common/Navbar.svelte';
 	import Hero from '$lib/components/common/Hero.svelte';
@@ -15,6 +15,9 @@
 	
 	// Estado reactivo
 	$: searchState = $searchResultsStore;
+	
+	// Estado para filtros móviles
+	let showMobileFilters = false;
 	
 	// Datos iniciales para el SearchForm
 	$: searchFormData = {
@@ -69,36 +72,42 @@
 		searchResultsActions.startSearch(searchParams, destination, filters);
 		
 		// Realizar búsqueda
-		await searchHotels(searchParams);
+		await searchHotels(searchParams, searchState.filters);
 	});
 	
-	async function searchHotels(params: any) {
+	async function searchHotels(params: any, filters?: any) {
 		try {
-			// Construir parámetros de búsqueda
-			const searchParams = new URLSearchParams({
-				dest_id: params.dest_id,
-				checkin_date: params.checkin_date,
-				checkout_date: params.checkout_date,
-				adults_number: params.adults_number.toString(),
-				room_number: params.room_number.toString(),
-				locale: 'es',
-				dest_type: 'city',
-				filter_by_currency: 'COP',
-				order_by: 'popularity',
-				units: 'metric',
-				page_number: '0',
-				include_adjacency: 'true'
-			});
-			
-			// Solo agregar children_number si hay niños
-			if (params.children_number > 0) {
-				searchParams.set('children_number', params.children_number.toString());
-				const childrenAges = Array(params.children_number).fill('5').join(',');
-				searchParams.set('children_ages', childrenAges);
+			// Validar parámetros requeridos
+			if (!params.dest_id || !params.checkin_date || !params.checkout_date) {
+				throw new Error('Parámetros de búsqueda incompletos');
 			}
 			
-			// Construir URL de búsqueda
-			const url = `https://booking-com.p.rapidapi.com/v1/hotels/search?${searchParams.toString()}`;
+			// Validar fechas
+			const checkinDate = new Date(params.checkin_date);
+			const checkoutDate = new Date(params.checkout_date);
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+			
+			if (checkinDate < today) {
+				throw new Error('La fecha de check-in debe ser futura');
+			}
+			
+			if (checkoutDate <= checkinDate) {
+				throw new Error('La fecha de check-out debe ser posterior al check-in');
+			}
+			
+			// Construir URL de búsqueda usando la función helper
+			const url = buildHotelSearchUrl(params, filters);
+			
+			// Debug: Log de la URL y parámetros
+			console.log('🔗 URL de búsqueda v2:', url);
+			console.log('📋 Parámetros enviados:', params);
+			console.log('🔍 Filtros aplicados:', filters);
+			console.log('🔍 Dest ID validación:', {
+				dest_id: params.dest_id,
+				isValid: params.dest_id && params.dest_id !== '',
+				type: typeof params.dest_id
+			});
 			
 			// Realizar búsqueda
 			const response = await fetch(url, {
@@ -110,25 +119,86 @@
 			});
 			
 			if (!response.ok) {
-				throw new Error(`Error ${response.status}: ${response.statusText}`);
+				// Intentar obtener más detalles del error
+				let errorDetails = '';
+				try {
+					const errorData = await response.json();
+					errorDetails = JSON.stringify(errorData, null, 2);
+				} catch (e) {
+					errorDetails = 'No se pudo obtener detalles del error';
+				}
+				
+				console.error('❌ Error de API:', {
+					status: response.status,
+					statusText: response.statusText,
+					url: url,
+					details: errorDetails
+				});
+				
+				throw new Error(`Error ${response.status}: ${response.statusText}. Detalles: ${errorDetails}`);
 			}
 			
 			const data = await response.json();
 			
+			// Debug: Log de la respuesta
+			console.log('🔍 Respuesta de la API v2:', data);
+			console.log('📊 Estructura de datos:', {
+				hasResults: !!data.results,
+				resultsLength: data.results?.length || 0,
+				count: data.count,
+				keys: Object.keys(data)
+			});
+			
 			// Verificar si hay resultados
-			if (!data.result || data.result.length === 0) {
+			if (!data.results || data.results.length === 0) {
+				console.log('❌ No se encontraron resultados en la respuesta');
 				searchResultsActions.setError('No se encontraron hoteles con los criterios de búsqueda');
 				return;
 			}
 			
 			// Actualizar resultados
-			searchResultsActions.updateResults(data.result, data.total_count_with_filters, data.primary_count);
+			console.log('✅ Actualizando resultados:', data.results.length, 'hoteles encontrados');
+			searchResultsActions.updateResults(data.results, data.count, data.count);
 			
 		} catch (error) {
 			console.error('Error en la búsqueda:', error);
 			searchResultsActions.setError('Error al buscar hoteles. Intenta nuevamente.');
 		}
 	}
+	
+	// Función para manejar cambios en filtros
+	async function handleFilterChange() {
+		if (!searchState.searchParams) return;
+		
+		console.log('🔄 Filtro cambiado, realizando nueva búsqueda...');
+		searchResultsActions.setFiltering(true);
+		
+		try {
+			await searchHotels(searchState.searchParams, searchState.filters);
+		} finally {
+			searchResultsActions.setFiltering(false);
+		}
+	}
+	
+	// Función para toggle de filtros móviles
+	function toggleMobileFilters() {
+		showMobileFilters = !showMobileFilters;
+	}
+	
+	// Función para manejar cambios en ordenamiento
+	async function handleSortChange() {
+		if (!searchState.searchParams) return;
+		
+		console.log('🔄 Ordenamiento cambiado, realizando nueva búsqueda...');
+		searchResultsActions.setFiltering(true);
+		
+		try {
+			await searchHotels(searchState.searchParams, searchState.filters);
+		} finally {
+			searchResultsActions.setFiltering(false);
+		}
+	}
+	
 </script>
 
 <svelte:head>
@@ -139,49 +209,119 @@
 <!-- Header completo con SearchForm -->
 <Header>
 	<Navbar />
-	<Hero>
+	<Hero showText={false}>
 		<SearchForm initialData={searchFormData} />
 	</Hero>
 </Header>
 
 <!-- Contenido principal -->
-<main class="min-h-screen max-w-[1100px] mx-auto mt-[50px]">
+<main class="min-h-screen max-w-[1100px] mx-auto mt-[100px] md:mt-[50px]">
 	<div class="container mx-auto px-4 py-8">
-		<!-- Título -->
-		<div class="mb-8">
-			<h1 class="text-3xl font-bold text-gray-900 mb-2">
-				Resultados de búsqueda
-			</h1>
-			<p class="text-gray-600">
-				{#if searchState.destination}
-					Hoteles en {searchState.destination.name}
-				{:else}
-					Cargando resultados...
-				{/if}
-			</p>
+		<!-- Título y ordenamiento -->
+		<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-2">
+			<div class="mb-2">
+				<h1 class="text-3xl font-bold text-gray-900">
+					Resultados de búsqueda
+				</h1>
+
+				<p class="text-gray-600">
+					{#if searchState.destination}
+						Hoteles en {searchState.destination.name}
+					{:else}
+						Cargando resultados...
+					{/if}
+				</p>
+			</div>
+		
+			<!-- Select de ordenamiento -->
+			<div class="relative">
+				<span>Ordenar por:</span>
+				<select 
+					id="sort-select"
+					bind:value={searchState.filters.sortBy}
+					on:change={handleSortChange}
+					class="w-full bg-white border border-zinc-200 rounded-lg px-4 py-3 pr-10 text-left hover:bg-gray-50 transition-colors duration-200 font-medium text-gray-900 min-w-[200px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer"
+				>
+					<option value="popularity">Popularidad</option>
+					<option value="price">Precio: menor a mayor</option>
+					<option value="price_high_to_low">Precio: mayor a menor</option>
+					<option value="review_score">Puntuación: mayor a menor</option>
+					<option value="distance">Distancia del centro</option>
+					<option value="name">Nombre: A-Z</option>
+				</select>
+				<!-- Icono de flecha -->
+				<div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+					<svg 
+						class="w-5 h-5 text-gray-500" 
+						fill="none" 
+						stroke="currentColor" 
+						viewBox="0 0 24 24"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+					</svg>
+				</div>
+			</div>
 		</div>
+		
+		<!-- Botón para mostrar/ocultar filtros en móvil -->
+		<div class="lg:hidden mb-4">
+			<button 
+				on:click={toggleMobileFilters}
+				class="w-full bg-white border border-zinc-200 rounded-lg px-4 py-3 text-left flex items-center justify-between hover:bg-gray-50 transition-colors duration-200"
+			>
+				<span class="font-medium text-gray-900">Filtros</span>
+				<svg 
+					class="w-5 h-5 text-gray-500 transform transition-transform duration-200 {showMobileFilters ? 'rotate-180' : ''}" 
+					fill="none" 
+					stroke="currentColor" 
+					viewBox="0 0 24 24"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+				</svg>
+			</button>
+		</div>
+		
+		<!-- Panel de filtros móvil (solo visible en móvil) -->
+		{#if showMobileFilters}
+			<div class="lg:hidden mb-6">
+				<FiltersPanel 
+					filters={searchState.filters}
+					destination={searchState.destination}
+					totalCount={searchState.totalCount}
+					primaryCount={searchState.primaryCount}
+					onFilterChange={handleFilterChange}
+					showMobileFilters={showMobileFilters}
+					isFiltering={searchState.isFiltering}
+				/>
+			</div>
+		{/if}
 		
 		<!-- Layout responsivo -->
 		<div class="flex flex-col lg:flex-row gap-8">
-			<!-- Panel lateral de filtros (oculto en móviles, visible en desktop) -->
-			<div class="lg:w-1/4 order-2 lg:order-1">
-				<div class="lg:sticky lg:top-8">
+			<!-- Panel lateral de filtros (solo visible en desktop) -->
+			<div class="hidden lg:block lg:w-1/4">
+				<div class="lg:sticky lg:top-8 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-scroll sidebar-scroll">
 					<FiltersPanel 
 						filters={searchState.filters}
 						destination={searchState.destination}
 						totalCount={searchState.totalCount}
 						primaryCount={searchState.primaryCount}
+						onFilterChange={handleFilterChange}
+						showMobileFilters={showMobileFilters}
+						isFiltering={searchState.isFiltering}
 					/>
 				</div>
 			</div>
 			
 			<!-- Lista de hoteles -->
 			<div class="lg:w-3/4 order-1 lg:order-2">
-				{#if searchState.isLoading}
+				{#if searchState.isLoading || searchState.isFiltering}
 					<!-- Estado de carga -->
 					<div class="flex flex-col items-center justify-center py-16">
 						<LoadingSpinner />
-						<p class="text-gray-600 mt-4">Buscando hoteles...</p>
+						<p class="text-gray-600 mt-4">
+							{searchState.isFiltering ? 'Aplicando filtros...' : 'Buscando hoteles...'}
+						</p>
 					</div>
 				{:else if searchState.error}
 					<!-- Estado de error -->
@@ -221,3 +361,15 @@
 		</div>
 	</div>
 </main>
+
+<style>
+	.sidebar-scroll {
+		/* Ocultar scrollbar pero mantener funcionalidad */
+		scrollbar-width: none; /* Firefox */
+		-ms-overflow-style: none; /* IE y Edge */
+	}
+	
+	.sidebar-scroll::-webkit-scrollbar {
+		display: none; /* Chrome, Safari, Opera */
+	}
+</style>

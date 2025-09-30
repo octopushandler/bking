@@ -29,79 +29,70 @@ export interface HotelSearchParams {
 	categories_filter_ids?: string;
 }
 
+// Hotel interface actualizada para API v2
 export interface Hotel {
-	id: string;
-	hotel_id: number;
-	hotel_name: string;
-	hotel_name_trans: string;
-	address: string;
-	address_trans: string;
-	city: string;
-	city_trans: string;
-	country_trans: string;
-	zip: string;
+	id: number;
+	name: string;
+	mainPhotoId: number;
+	photoMainUrl: string;
+	photoUrls: string[];
+	position: number;
+	rankingPosition: number;
+	countryCode: string;
 	latitude: number;
 	longitude: number;
-	class: number;
-	review_score: number;
-	review_score_word: string;
-	review_nr: number;
-	main_photo_url: string;
-	max_photo_url: string;
-	max_1440_photo_url: string;
-	min_total_price: number;
-	currency_code: string;
-	price_breakdown: {
-		all_inclusive_price: number;
-		gross_price: string;
-		currency: string;
-	};
-	composite_price_breakdown: {
-		all_inclusive_amount: {
-			amount_rounded: string;
+	priceBreakdown: {
+		benefitBadges: Array<{
+			text: string;
+			variant: string;
+			identifier: string;
+			explanation: string;
+		}>;
+		taxExceptions: any[];
+		grossPrice: {
 			value: number;
 			currency: string;
 		};
-		gross_amount: {
-			amount_rounded: string;
-			value: number;
-			currency: string;
-		};
-		discounted_amount?: {
-			amount_rounded: string;
-			value: number;
-			currency: string;
-		};
-		strikethrough_amount?: {
-			amount_rounded: string;
+		strikethroughPrice?: {
 			value: number;
 			currency: string;
 		};
 	};
-	distances: Array<{
-		text: string;
-		icon_name: string;
-	}>;
-	badges: Array<{
-		text: string;
-		badge_variant: string;
-		id: string;
-	}>;
-	ribbon_text?: string;
-	is_free_cancellable: boolean;
-	has_free_parking: boolean;
-	has_swimming_pool: boolean;
+	currency: string;
 	checkin: {
-		from: string;
-		until: string;
+		fromTime: string;
+		untilTime: string;
 	};
 	checkout: {
-		from: string;
-		until: string;
+		fromTime: string;
+		untilTime: string;
 	};
-	hotel_facilities: string;
-	unit_configuration_label: string;
-	url: string;
+	checkoutDate: string;
+	checkinDate: string;
+	reviewScore: number;
+	reviewScoreWord: string;
+	reviewCount: number;
+	qualityClass: number;
+	isFirstPage: boolean;
+	accuratePropertyClass: number;
+	propertyClass: number;
+	ufi: number;
+	wishlistName: string;
+	optOutFromGalleryChanges: number;
+	wishlistToggle: {
+		destinationId: string;
+		propertyId: number;
+		wishlistName: string;
+	};
+	propertyType: string;
+	proposedAccommodation: string[];
+	priceDetails: {
+		info: string;
+		strikethrough: string | null;
+		gross: string;
+		taxInfo: string;
+	};
+	additionalLabels: any[];
 }
 
 // Tipos para detalles de hotel (respuesta del endpoint v2 /hotels/details)
@@ -359,22 +350,11 @@ export interface HotelDetails {
 	};
 }
 
+// Respuesta de búsqueda de hoteles v2
 export interface HotelSearchResponse {
-	primary_count: number;
 	count: number;
-	total_count_with_filters: number;
-	unfiltered_count: number;
-	result: Hotel[];
-	sort: Array<{
-		name: string;
-		id: string;
-	}>;
-	map_bounding_box: {
-		ne_long: number;
-		sw_long: number;
-		ne_lat: number;
-		sw_lat: number;
-	};
+	mapPageFields: any;
+	results: Hotel[];
 }
 
 export interface ApiConfig {
@@ -441,33 +421,139 @@ export function buildSearchUrl(query: string): string {
     return `${BOOKING_API_CONFIG.BASE_URL}?${params.toString()}`;
 }
 
-// Función helper para construir la URL de búsqueda de hoteles
-export function buildHotelSearchUrl(params: HotelSearchParams): string {
+// Función helper para construir la URL de búsqueda de hoteles v2
+export function buildHotelSearchUrl(params: HotelSearchParams, filters?: any): string {
     const searchParams = new URLSearchParams({
         dest_id: params.dest_id,
         checkin_date: params.checkin_date,
         checkout_date: params.checkout_date,
         adults_number: params.adults_number.toString(),
-        children_number: params.children_number.toString(),
         room_number: params.room_number.toString(),
-        locale: params.locale || 'es',
+        locale: 'es-mx',
         dest_type: params.dest_type || 'city',
-        filter_by_currency: params.filter_by_currency || 'COP',
-        order_by: params.order_by || 'popularity',
-        units: params.units || 'metric',
+        filter_by_currency: 'COP',
+        order_by: filters?.sortBy || 'popularity',
+        units: 'metric',
         page_number: (params.page_number || 0).toString(),
-        include_adjacency: (params.include_adjacency || true).toString()
+        include_adjacency: 'true'
     });
+    
+    // Solo agregar children_number si hay niños
+    if (params.children_number && params.children_number > 0) {
+        searchParams.set('children_number', params.children_number.toString());
+        // También agregar children_ages si hay niños
+        const childrenAges = Array(params.children_number).fill('5').join(',');
+        searchParams.set('children_ages', childrenAges);
+    }
+    
+    // Aplicar filtros si están disponibles
+    if (filters) {
+        // Filtros de precio
+        if (filters.priceMin && filters.priceMin > 0) {
+            searchParams.set('price_min', filters.priceMin.toString());
+        }
+        if (filters.priceMax && filters.priceMax < 1000) {
+            searchParams.set('price_max', filters.priceMax.toString());
+        }
+        
+        // Filtro de puntuación mínima
+        if (filters.minReviewScore && filters.minReviewScore > 0) {
+            searchParams.set('min_review_score', filters.minReviewScore.toString());
+        }
+        
+        // Construir filtros de categorías
+        const categoryFilters = buildCategoryFilters(filters);
+        if (categoryFilters.length > 0) {
+            searchParams.set('categories_filter_ids', categoryFilters.join(','));
+        }
+    }
+    
+    return `https://${BOOKING_API_CONFIG.HEADERS['x-rapidapi-host']}/v2/hotels/search?${searchParams.toString()}`;
+}
 
-    if (params.children_ages) {
-        searchParams.set('children_ages', params.children_ages);
+// Función para construir filtros de categorías
+function buildCategoryFilters(filters: any): string[] {
+    const categories = [];
+    
+    // Servicios y Amenidades
+    if (filters.services) {
+        const serviceMapping = {
+            freeCancellation: 'free_cancellation',
+            wifi: 'wifi',
+            parking: 'parking',
+            pool: 'pool',
+            gym: 'gym',
+            spa: 'spa',
+            restaurant: 'restaurant',
+            bar: 'bar',
+            roomService: 'room_service',
+            concierge: 'concierge',
+            businessCenter: 'business_center',
+            meetingRooms: 'meeting_rooms',
+            airportShuttle: 'airport_shuttle',
+            petFriendly: 'pet_friendly',
+            nonSmoking: 'non_smoking'
+        };
+        
+        Object.entries(filters.services).forEach(([key, value]) => {
+            if (value && serviceMapping[key as keyof typeof serviceMapping]) {
+                categories.push(`${serviceMapping[key as keyof typeof serviceMapping]}::1`);
+            }
+        });
     }
     
-    if (params.categories_filter_ids) {
-        searchParams.set('categories_filter_ids', params.categories_filter_ids);
+    // Tipos de Alojamiento
+    if (filters.accommodationTypes) {
+        const typeMapping = {
+            hotel: 'hotel',
+            apartment: 'apartment',
+            hostel: 'hostel',
+            guesthouse: 'guesthouse',
+            resort: 'resort',
+            villa: 'villa',
+            bedAndBreakfast: 'bed_and_breakfast'
+        };
+        
+        Object.entries(filters.accommodationTypes).forEach(([key, value]) => {
+            if (value && typeMapping[key as keyof typeof typeMapping]) {
+                categories.push(`${typeMapping[key as keyof typeof typeMapping]}::1`);
+            }
+        });
     }
     
-    return `https://${BOOKING_API_CONFIG.HEADERS['x-rapidapi-host']}/v1/hotels/search?${searchParams.toString()}`;
+    // Políticas de Pago
+    if (filters.paymentPolicies) {
+        const paymentMapping = {
+            payAtHotel: 'pay_at_hotel',
+            prepaymentRequired: 'prepayment_required',
+            noPrepayment: 'no_prepayment'
+        };
+        
+        Object.entries(filters.paymentPolicies).forEach(([key, value]) => {
+            if (value && paymentMapping[key as keyof typeof paymentMapping]) {
+                categories.push(`${paymentMapping[key as keyof typeof paymentMapping]}::1`);
+            }
+        });
+    }
+    
+    // Características Especiales
+    if (filters.specialFeatures) {
+        const featureMapping = {
+            beachfront: 'beachfront',
+            cityCenter: 'city_center',
+            airportNearby: 'airport_nearby',
+            trainStationNearby: 'train_station_nearby',
+            metroNearby: 'metro_nearby'
+        };
+        
+        Object.entries(filters.specialFeatures).forEach(([key, value]) => {
+            if (value && featureMapping[key as keyof typeof featureMapping]) {
+                categories.push(`${featureMapping[key as keyof typeof featureMapping]}::1`);
+            }
+        });
+    }
+    
+    return categories;
 }
 
 // Función helper para construir la URL de detalles de hotel (v2)

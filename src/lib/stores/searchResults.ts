@@ -17,6 +17,7 @@ export interface SearchResultsState {
 	
 	// Estado de carga
 	isLoading: boolean;
+	isFiltering: boolean;
 	error: string | null;
 	
 	// Filtros aplicados
@@ -28,6 +29,61 @@ export interface SearchResultsState {
 		rooms: number;
 		currency: string;
 		sortBy: string;
+		
+		// Nuevos filtros
+		// Precios (dinámicos)
+		priceMin: number;
+		priceMax: number;
+		priceRange: { min: number; max: number };
+		
+		// Servicios y Amenidades
+		services: {
+			freeCancellation: boolean;
+			wifi: boolean;
+			parking: boolean;
+			pool: boolean;
+			gym: boolean;
+			spa: boolean;
+			restaurant: boolean;
+			bar: boolean;
+			roomService: boolean;
+			concierge: boolean;
+			businessCenter: boolean;
+			meetingRooms: boolean;
+			airportShuttle: boolean;
+			petFriendly: boolean;
+			nonSmoking: boolean;
+		};
+		
+		// Tipos de Alojamiento
+		accommodationTypes: {
+			hotel: boolean;
+			apartment: boolean;
+			hostel: boolean;
+			guesthouse: boolean;
+			resort: boolean;
+			villa: boolean;
+			bedAndBreakfast: boolean;
+		};
+		
+		// Políticas de Pago
+		paymentPolicies: {
+			payAtHotel: boolean;
+			prepaymentRequired: boolean;
+			noPrepayment: boolean;
+		};
+		
+		// Características Especiales
+		specialFeatures: {
+			beachfront: boolean;
+			cityCenter: boolean;
+			airportNearby: boolean;
+			trainStationNearby: boolean;
+			metroNearby: boolean;
+		};
+		
+		// Puntuación mínima
+		minReviewScore: number;
 	};
 }
 
@@ -39,6 +95,7 @@ const initialState: SearchResultsState = {
 	totalCount: 0,
 	primaryCount: 0,
 	isLoading: false,
+	isFiltering: false,
 	error: null,
 	filters: {
 		checkIn: '',
@@ -47,7 +104,56 @@ const initialState: SearchResultsState = {
 		children: 0,
 		rooms: 1,
 		currency: 'COP',
-		sortBy: 'popularity'
+		sortBy: 'popularity',
+		
+		// Valores por defecto para nuevos filtros
+		priceMin: 0,
+		priceMax: 1000,
+		priceRange: { min: 0, max: 1000 },
+		
+		services: {
+			freeCancellation: false,
+			wifi: false,
+			parking: false,
+			pool: false,
+			gym: false,
+			spa: false,
+			restaurant: false,
+			bar: false,
+			roomService: false,
+			concierge: false,
+			businessCenter: false,
+			meetingRooms: false,
+			airportShuttle: false,
+			petFriendly: false,
+			nonSmoking: false,
+		},
+		
+		accommodationTypes: {
+			hotel: false,
+			apartment: false,
+			hostel: false,
+			guesthouse: false,
+			resort: false,
+			villa: false,
+			bedAndBreakfast: false,
+		},
+		
+		paymentPolicies: {
+			payAtHotel: false,
+			prepaymentRequired: false,
+			noPrepayment: false,
+		},
+		
+		specialFeatures: {
+			beachfront: false,
+			cityCenter: false,
+			airportNearby: false,
+			trainStationNearby: false,
+			metroNearby: false,
+		},
+		
+		minReviewScore: 0,
 	}
 };
 
@@ -94,5 +200,87 @@ export const searchResultsActions = {
 	// Limpiar resultados
 	clearResults: () => {
 		searchResultsStore.set(initialState);
+	},
+	
+	// Actualizar filtros específicos
+	updateFilter: (category: string, key: string, value: boolean | number) => {
+		searchResultsStore.update(state => ({
+			...state,
+			filters: {
+				...state.filters,
+				[category]: {
+					...(state.filters[category as keyof typeof state.filters] as any),
+					[key]: value
+				}
+			}
+		}));
+	},
+	
+	// Actualizar múltiples filtros
+	updateFilters: (newFilters: Partial<SearchResultsState['filters']>) => {
+		searchResultsStore.update(state => ({
+			...state,
+			filters: { ...state.filters, ...newFilters }
+		}));
+	},
+	
+	// Limpiar todos los filtros (mantener los básicos)
+	clearAllFilters: () => {
+		searchResultsStore.update(state => ({
+			...state,
+			filters: {
+				...state.filters,
+				priceMin: 0,
+				priceMax: 1000,
+				priceRange: { min: 0, max: 1000 },
+				services: {
+					freeCancellation: false,
+					wifi: false,
+					parking: false,
+					pool: false,
+					gym: false,
+					spa: false,
+					restaurant: false,
+					bar: false,
+					roomService: false,
+					concierge: false,
+					businessCenter: false,
+					meetingRooms: false,
+					airportShuttle: false,
+					petFriendly: false,
+					nonSmoking: false,
+				},
+				accommodationTypes: {
+					hotel: false,
+					apartment: false,
+					hostel: false,
+					guesthouse: false,
+					resort: false,
+					villa: false,
+					bedAndBreakfast: false,
+				},
+				paymentPolicies: {
+					payAtHotel: false,
+					prepaymentRequired: false,
+					noPrepayment: false,
+				},
+				specialFeatures: {
+					beachfront: false,
+					cityCenter: false,
+					airportNearby: false,
+					trainStationNearby: false,
+					metroNearby: false,
+				},
+				minReviewScore: 0,
+			}
+		}));
+	},
+	
+	// Acciones para estado de filtrado
+	setFiltering: (isFiltering: boolean) => {
+		searchResultsStore.update(state => ({
+			...state,
+			isFiltering
+		}));
 	}
 };

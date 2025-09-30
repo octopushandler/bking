@@ -34,6 +34,7 @@
 	let showDropdown = false;
 	let debounceTimer = null;
 	let errorMessage = '';
+	let userHasTyped = false; // Rastrea si el usuario ha modificado el campo
 	
 	// ===== ESTADO DE FECHAS =====
 	let checkInDate = '';
@@ -59,6 +60,12 @@
 		const target = event.target;
 		query = target.value;
 		errorMessage = '';
+		userHasTyped = true; // Marcar que el usuario ha escrito
+		
+		// Limpiar destino guardado cuando el usuario escribe algo nuevo
+		if (typeof window !== 'undefined') {
+			localStorage.removeItem('selectedDestination');
+		}
 		
 		clearDebounceTimer();
 		
@@ -128,6 +135,7 @@
 		showDropdown = false;
 		results = [];
 		errorMessage = '';
+		userHasTyped = false; // Resetear porque el usuario seleccionó específicamente
 		
 		saveDestinationToStorage(destination);
 	}
@@ -265,30 +273,24 @@
 	async function handleSearch() {
 		if (!validateForm()) return;
 		
-		// Obtener el destino seleccionado del localStorage o usar el destino actual
 		let selectedDestination = null;
-		if (typeof window !== 'undefined') {
-			const savedDestination = localStorage.getItem('selectedDestination');
-			if (savedDestination) {
-				try {
-					selectedDestination = JSON.parse(savedDestination);
-				} catch (error) {
-					console.error('Error parsing saved destination:', error);
-				}
-			}
-		}
 		
-		// Si no hay destino guardado pero hay uno en initialData, usarlo
-		if (!selectedDestination && initialData.destination) {
+		// Si el usuario ha escrito algo, hacer búsqueda automática
+		if (userHasTyped) {
+			console.log('🔍 Usuario ha escrito, realizando búsqueda automática para:', query.trim());
+			selectedDestination = await performAutoSearch(query.trim());
+			
+			if (!selectedDestination) {
+				errorMessage = 'No se encontraron destinos para tu búsqueda. Intenta con otro término.';
+				return;
+			}
+		} else if (initialData.destination) {
+			// Solo usar destino de initialData si el usuario no ha escrito nada
 			selectedDestination = initialData.destination;
 			console.log('📍 Usando destino de initialData:', selectedDestination);
-			// Guardar en localStorage para futuras búsquedas
-			saveDestinationToStorage(selectedDestination);
-		}
-		
-		// Si no hay destino seleccionado, hacer búsqueda automática
-		if (!selectedDestination) {
-			console.log('🔍 No hay destino seleccionado, realizando búsqueda automática...');
+		} else {
+			// Fallback: hacer búsqueda automática
+			console.log('🔍 Fallback: realizando búsqueda automática para:', query.trim());
 			selectedDestination = await performAutoSearch(query.trim());
 			
 			if (!selectedDestination) {

@@ -112,7 +112,7 @@
 <!-- Header completo con SearchForm -->
 <Header>
 	<Navbar />
-	<Hero>
+	<Hero showText={false}>
 		<SearchForm initialData={searchFormData} />
 	</Hero>
 </Header>
