@@ -4,6 +4,8 @@
 	import { goto } from '$app/navigation';
 	import { searchResultsStore, searchResultsActions } from '$lib/stores/searchResults';
 	import { BOOKING_API_CONFIG, buildHotelSearchUrl } from '$lib/config/api';
+	import { notificationAPI } from '$lib/stores/notifications';
+	import { fetchWithRetry, handleApiError } from '$lib/utils/apiHelpers';
 	import Header from '$lib/components/common/Header.svelte';
 	import Navbar from '$lib/components/common/Navbar.svelte';
 	import Hero from '$lib/components/common/Hero.svelte';
@@ -11,6 +13,7 @@
 	import HotelCard from '$lib/components/search/HotelCard.svelte';
 	import FiltersPanel from '$lib/components/search/FiltersPanel.svelte';
 	import LoadingSpinner from '$lib/components/common/LoadingSpinner.svelte';
+	import HotelCardSkeleton from '$lib/components/common/HotelCardSkeleton.svelte';
 	
 	
 	// Estado reactivo
@@ -72,7 +75,7 @@
 		searchResultsActions.startSearch(searchParams, destination, filters);
 		
 		// Realizar búsqueda
-		await searchHotels(searchParams, searchState.filters);
+		await searchHotels(searchParams, filters);
 	});
 	
 	async function searchHotels(params: any, filters?: any) {
@@ -109,13 +112,14 @@
 				type: typeof params.dest_id
 			});
 			
-			// Realizar búsqueda
-			const response = await fetch(url, {
+			// Realizar búsqueda con retry automático
+			const response = await fetchWithRetry(url, {
 				method: 'GET',
-				headers: {
-					'x-rapidapi-host': 'booking-com.p.rapidapi.com',
-					'x-rapidapi-key': 'f6ab88621dmsh873547794e47243p17758bjsn68fe60b5daf0'
-				}
+				headers: BOOKING_API_CONFIG.HEADERS
+			}, {
+				timeout: 15000, // 15 segundos de timeout
+				maxRetries: 3,  // Máximo 3 reintentos
+				retryDelay: 1000 // 1 segundo de delay inicial
 			});
 			
 			if (!response.ok) {
@@ -152,6 +156,16 @@
 			// Verificar si hay resultados
 			if (!data.results || data.results.length === 0) {
 				console.log('❌ No se encontraron resultados en la respuesta');
+				
+				// Mostrar notificación de advertencia
+				notificationAPI.warning(
+					'Sin resultados',
+					'No se encontraron hoteles con los criterios de búsqueda. Intenta con otros filtros.',
+					{
+						duration: 8000
+					}
+				);
+				
 				searchResultsActions.setError('No se encontraron hoteles con los criterios de búsqueda');
 				return;
 			}
@@ -162,7 +176,26 @@
 			
 		} catch (error) {
 			console.error('Error en la búsqueda:', error);
-			searchResultsActions.setError('Error al buscar hoteles. Intenta nuevamente.');
+			const errorMessage = handleApiError(error as any, 'búsqueda de hoteles');
+
+			// Mostrar notificación de error
+			notificationAPI.error(
+				'Error de búsqueda',
+				errorMessage,
+				{
+					duration: 8000,
+					actions: [
+						{
+							id: 'retry',
+							label: 'Reintentar',
+							action: () => searchHotels(params, filters),
+							variant: 'primary'
+						}
+					]
+				}
+			);
+			
+			searchResultsActions.setError(errorMessage);
 		}
 	}
 	
@@ -297,7 +330,7 @@
 		{/if}
 		
 		<!-- Layout responsivo -->
-		<div class="flex flex-col lg:flex-row gap-8">
+		<div class="flex flex-col lg:flex-row gap-4 lg:gap-8">
 			<!-- Panel lateral de filtros (solo visible en desktop) -->
 			<div class="hidden lg:block lg:w-1/4">
 				<div class="lg:sticky lg:top-8 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-scroll sidebar-scroll">
@@ -316,34 +349,32 @@
 			<!-- Lista de hoteles -->
 			<div class="lg:w-3/4 order-1 lg:order-2">
 				{#if searchState.isLoading || searchState.isFiltering}
-					<!-- Estado de carga -->
-					<div class="flex flex-col items-center justify-center py-16">
-						<LoadingSpinner />
-						<p class="text-gray-600 mt-4">
-							{searchState.isFiltering ? 'Aplicando filtros...' : 'Buscando hoteles...'}
+					<!-- Estado de carga con skeleton -->
+					<div class="space-y-6">
+						{#if searchState.isFiltering}
+							<!-- Mostrar skeleton mientras se filtran los resultados existentes -->
+							{#each Array(3) as _, i}
+								<HotelCardSkeleton />
+							{/each}
+						{:else}
+							<!-- Mostrar skeleton para búsqueda inicial -->
+							{#each Array(6) as _, i}
+								<HotelCardSkeleton />
+							{/each}
+						{/if}
+					</div>
+				{:else if searchState.error || searchState.hotels.length === 0}
+					<!-- Estado de error o sin resultados -->
+					<div class="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+						<div class="text-gray-400 text-6xl mb-4">🔍</div>
+						<h3 class="text-lg font-semibold text-gray-800 mb-2">
+							{searchState.error ? 'Error en la búsqueda' : 'Sin resultados'}
+						</h3>
+						<p class="text-gray-600 mb-4">
+							{searchState.error || 'No se encontraron hoteles con los criterios de búsqueda'}
 						</p>
-					</div>
-				{:else if searchState.error}
-					<!-- Estado de error -->
-					<div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-						<div class="text-red-600 text-6xl mb-4">⚠️</div>
-						<h3 class="text-lg font-semibold text-red-800 mb-2">Error en la búsqueda</h3>
-						<p class="text-red-600 mb-4">{searchState.error}</p>
 						<button 
-							class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
-							on:click={() => window.history.back()}
-						>
-							Volver a buscar
-						</button>
-					</div>
-				{:else if searchState.hotels.length === 0}
-					<!-- Sin resultados -->
-					<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-						<div class="text-yellow-600 text-6xl mb-4">🔍</div>
-						<h3 class="text-lg font-semibold text-yellow-800 mb-2">No se encontraron hoteles</h3>
-						<p class="text-yellow-600 mb-4">Intenta con otros criterios de búsqueda</p>
-						<button 
-							class="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+							class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
 							on:click={() => window.history.back()}
 						>
 							Modificar búsqueda

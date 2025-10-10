@@ -1,3 +1,11 @@
+<!-- 
+	LEGACY COMPONENT - DEPRECATED
+	
+	Este componente está marcado como legacy y será removido en futuras versiones.
+	Los errores ahora se manejan a través del sistema de notificaciones centralizado.
+	
+	Ver: src/lib/stores/notifications.ts y src/lib/components/common/NotificationToast.svelte
+-->
 <script>
 	import { onMount } from 'svelte';
 	

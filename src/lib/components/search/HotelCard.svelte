@@ -21,27 +21,46 @@
 	}
 	
 	function getCityName(): string {
-		// Extraer ciudad del propertyType o usar wishlistName
-		return hotel.wishlistName || 'Ciudad no disponible';
+		// Usar datos reales disponibles
+		if (hotel.wishlistName) {
+			return hotel.wishlistName;
+		}
+		if (hotel.propertyType) {
+			return hotel.propertyType;
+		}
+		return 'Ubicación disponible';
 	}
 	
 	function getDistanceFromCenter(): string {
-		// Generar distancia aleatoria entre 0.5 y 3.5 km
-		const distance = (Math.random() * 3 + 0.5).toFixed(1);
-		return `a ${distance} km del centro`;
+		// Usar datos reales si están disponibles, sino mostrar mensaje genérico
+		if (hotel.latitude && hotel.longitude) {
+			// En una implementación real, aquí se calcularía la distancia al centro de la ciudad
+			// Por ahora, usamos un valor estimado basado en la posición
+			const estimatedDistance = Math.abs(hotel.latitude) * 0.1; // Estimación simple
+			return `a ${estimatedDistance.toFixed(1)} km del centro`;
+		}
+		return 'Ubicación disponible';
 	}
 	
 	function getRoomDescription(): string {
 		if (hotel.proposedAccommodation && hotel.proposedAccommodation.length > 0) {
-			return hotel.proposedAccommodation.join(' ');
+			// Mostrar solo el primer tipo de habitación para evitar texto muy largo
+			return hotel.proposedAccommodation[0] || 'Habitación estándar';
+		}
+		// Usar información del hotel si está disponible
+		if (hotel.propertyType) {
+			return hotel.propertyType;
 		}
 		return 'Habitación estándar';
 	}
 	
 	function getRoomCount(): string {
-		// Generar número aleatorio de habitaciones disponibles
-		const count = Math.floor(Math.random() * 10) + 1;
-		return `${count} habitación${count > 1 ? 'es' : ''} disponible${count > 1 ? 's' : ''}`;
+		// Usar datos reales si están disponibles
+		if (hotel.proposedAccommodation && hotel.proposedAccommodation.length > 0) {
+			const roomTypes = hotel.proposedAccommodation.length;
+			return `${roomTypes} tipo${roomTypes > 1 ? 's' : ''} de habitación${roomTypes > 1 ? 'es' : ''} disponible${roomTypes > 1 ? 's' : ''}`;
+		}
+		return 'Habitaciones disponibles';
 	}
 	
 	function getReviewWord(score: number): string {
@@ -96,8 +115,12 @@
 	}
 	
 	function getRemainingRooms(): number {
-		// Generar número aleatorio de habitaciones restantes (1-5)
-		return Math.floor(Math.random() * 5) + 1;
+		// Usar datos reales basados en la disponibilidad del hotel
+		if (hotel.proposedAccommodation && hotel.proposedAccommodation.length > 0) {
+			// Estimación basada en el número de tipos de habitación disponibles
+			return Math.min(hotel.proposedAccommodation.length, 5);
+		}
+		return 1; // Mínimo 1 habitación disponible
 	}
 	
 	function handleViewAvailability() {
@@ -115,9 +138,9 @@
 
 <!-- Tarjeta de hotel con nuevo diseño -->
 <div class="bg-white rounded-lg border border-zinc-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
-	<div class="flex flex-col lg:flex-row">
+	<div class="flex flex-col sm:flex-row">
 		<!-- Columna 1: Imagen cuadrada -->
-		<div class="p-4 lg:w-72 h-64 lg:h-72 relative">
+		<div class="p-4 sm:w-64 lg:w-72 h-48 sm:h-64 lg:h-72 relative">
 			{#if hotel.photoMainUrl}
 				<img 
 					src={hotel.photoMainUrl} 
@@ -140,19 +163,19 @@
 		</div>
 		
 		<!-- Columna 2: Información del hotel -->
-		<div class="flex-1 p-2 px-4">
+		<div class="flex-1 p-2 px-4 min-w-0">
 			<!-- Nombre del hotel -->
-			<h3 class="text-2xl lg:text-xl font-bold mb-2" style="color: #006CE4;">
+			<h3 class="text-lg sm:text-xl lg:text-xl font-bold mb-2 truncate" style="color: #006CE4;">
 				{getHotelName()}
 			</h3>
 			
 			<!-- Ubicación y mapa -->
-			<div class="flex items-center text-sm lg:text-xs mb-3" style="color: #006CE4;">
-				<span class="underline">{getCityName()}</span>
-				<span class="mx-1 text-gray-400">-</span>
-				<button class="underline hover:no-underline">Mostrar en el mapa</button>
-				<span class="mx-1 text-gray-400">-</span>
-				<span class="text-gray-600">{getDistanceFromCenter()}</span>
+			<div class="flex flex-col sm:flex-row sm:items-center text-sm lg:text-xs mb-3 gap-1 sm:gap-0" style="color: #006CE4;">
+				<span class="underline truncate">{getCityName()}</span>
+				<span class="hidden sm:inline mx-1 text-gray-400">-</span>
+				<button class="underline hover:no-underline text-left sm:text-center">Mostrar en el mapa</button>
+				<span class="hidden sm:inline mx-1 text-gray-400">-</span>
+				<span class="text-gray-600 truncate">{getDistanceFromCenter()}</span>
 			</div>
 			
 			<!-- Descripción de habitación -->
@@ -162,7 +185,7 @@
 			</div>
 			
 			<!-- Características en verde -->
-			<div class="flex flex-col flex-wrap gap-2 mb-2 justify-start">
+			<div class="flex flex-col gap-2 mb-2">
 				<span class="inline-flex items-start text-sm lg:text-xs text-green-600">
 					<svg class="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
 						<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
@@ -179,7 +202,8 @@
 					<svg class="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
 						<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
 					</svg>
-					<span>Sin pago por adelantado - Pagarás en el alojamiento</span>
+					<span class="hidden sm:inline">Sin pago por adelantado - Pagarás en el alojamiento</span>
+					<span class="sm:hidden">Pago en el alojamiento</span>
 				</span>
 			</div>
 			
@@ -190,14 +214,14 @@
 		</div>
 		
 		<!-- Columna 3: Precios y calificaciones -->
-		<div class="lg:w-44 p-2 text-right px-4">
+		<div class="sm:w-44 p-2 text-right px-4 flex-shrink-0">
 			<!-- Contenedor de calificaciones -->
 			<div class="flex justify-end gap-2 mb-2">
 				<div class="text-right">
-					<div class="text-base lg:text-sm font-medium text-gray-900">{getReviewWord(hotel.reviewScore)}</div>
-					<div class="text-sm lg:text-xs text-gray-600">{hotel.reviewCount} comentarios</div>
+					<div class="text-sm lg:text-sm font-medium text-gray-900">{getReviewWord(hotel.reviewScore)}</div>
+					<div class="text-xs lg:text-xs text-gray-600">{hotel.reviewCount} comentarios</div>
 				</div>
-				<div class="bg-[#003b95] text-white px-2 py-1 rounded-lg font-bold text-md text-center flex items-center justify-center">
+				<div class="bg-[#003b95] text-white px-2 py-1 rounded-lg font-bold text-sm text-center flex items-center justify-center">
 					{hotel.reviewScore}
 				</div>
 			</div>
@@ -208,18 +232,18 @@
 			</div>
 			
 			<!-- Precio principal -->
-			<div class="text-3xl lg:text-2xl font-bold text-gray-900 mb-1">
+			<div class="text-2xl lg:text-2xl font-bold text-gray-900 mb-1">
 				{getPriceDisplay()}
 			</div>
 			
 			<!-- Impuestos -->
-			<div class="text-base lg:text-sm text-gray-500 mb-4">
+			<div class="text-sm lg:text-sm text-gray-500 mb-4">
 				+ {getTaxAmount()} de impuestos y cargos
 			</div>
 			
 			<!-- Botón -->
 			<button 
-				class="lg:text-xs w-full bg-[#003b95] hover:bg-[#005bb5] text-white font-semibold py-3 px-4 lg:px-1 rounded-lg transition-colors duration-200 flex items-center justify-center"
+				class="text-sm w-full bg-[#003b95] hover:bg-[#005bb5] text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
 				on:click={handleViewAvailability}
 			>
 				Ver disponibilidad

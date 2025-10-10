@@ -569,6 +569,33 @@ export function buildHotelDetailsUrl(hotelId: number, checkinDate: string, check
     return `https://${BOOKING_API_CONFIG.HEADERS['x-rapidapi-host']}/v2/hotels/details?${params.toString()}`;
 }
 
+// Función helper para construir la URL de habitaciones disponibles (v2)
+export function buildHotelRoomsUrl(hotelId: number, checkinDate: string, checkoutDate: string, adults: number = 2, children: number = 0): string {
+    const params = new URLSearchParams({
+        hotel_id: hotelId.toString(),
+        checkin_date: checkinDate,
+        checkout_date: checkoutDate,
+        adults_number: adults.toString(),
+        children_number: children.toString(),
+        locale: 'es-mx',
+        currency: 'COP'
+    });
+    
+    return `https://${BOOKING_API_CONFIG.HEADERS['x-rapidapi-host']}/v2/hotels/rooms?${params.toString()}`;
+}
+
+// Función helper para construir la URL de reviews (v2)
+export function buildHotelReviewsUrl(hotelId: number, page: number = 0, limit: number = 10): string {
+    const params = new URLSearchParams({
+        hotel_id: hotelId.toString(),
+        page: page.toString(),
+        limit: limit.toString(),
+        locale: 'es-mx'
+    });
+    
+    return `https://${BOOKING_API_CONFIG.HEADERS['x-rapidapi-host']}/v2/hotels/reviews?${params.toString()}`;
+}
+
 // Función helper para obtener la configuración de un tipo de destino
 export function getDestinationTypeConfig(type: string): DestinationTypeConfig {
     return BOOKING_API_CONFIG.DESTINATION_TYPES[type] || {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
 	import Header from '$lib/components/common/Header.svelte';
 	import Navbar from '$lib/components/common/Navbar.svelte';
 	import Hero from '$lib/components/common/Hero.svelte';
@@ -8,29 +9,88 @@
     import Footer from '$lib/components/common/footer.svelte';
 	import ImageGalleryDesktop from '$lib/components/hotel/ImageGalleryDesktop.svelte';
 	import ImageGalleryMobile from '$lib/components/hotel/ImageGalleryMobile.svelte';
-
-	const fotos = [
-		{ src: '/assets/hotel/static1.jpg', alt: 'Piscina' },
-		{ src: '/assets/hotel/static2.jpg', alt: 'Exterior' },
-		{ src: '/assets/hotel/static3.jpg', alt: 'Habitación' },
-		{ src: '/assets/hotel/static4.jpg', alt: 'Lobby' },
-		{ src: '/assets/hotel/static5.jpg', alt: 'Comedor' },
-		{ src: '/assets/hotel/static6.jpg', alt: 'Suite' },
-		{ src: '/assets/hotel/static7.jpg', alt: 'Escritorio' },
-		{ src: '/assets/hotel/static8.jpg', alt: 'Baño' },
-		{ src: '/assets/hotel/static9.jpg', alt: 'Otra foto' },
-		{ src: '/assets/hotel/static10.jpg', alt: 'Otra foto' },
-		{ src: '/assets/hotel/static11.jpg', alt: 'Otra foto' },
-		{ src: '/assets/hotel/static12.jpg', alt: 'Otra foto' }
-	];
+	import { hotelDetailsStore } from '$lib/stores/hotelDetails';
+	import { HotelDetailsService } from '$lib/services/hotelDetailsService';
 
 	// Estado para controlar el colapso de las opciones de habitación
 	let showRoomOptions = true;
+
+	// Fotos dinámicas desde la API
+	$: fotos = $hotelDetailsStore.hotelPhotos?.map(photo => ({
+		src: photo.url_max,
+		alt: photo.tags?.[0]?.tag || 'Hotel'
+	})) || [
+		// Fotos placeholder cuando no hay datos de la API
+		{ src: '---', alt: '---' },
+		{ src: '---', alt: '---' },
+		{ src: '---', alt: '---' },
+		{ src: '---', alt: '---' },
+		{ src: '---', alt: '---' },
+		{ src: '---', alt: '---' },
+		{ src: '---', alt: '---' },
+		{ src: '---', alt: '---' }
+	];
+
+	// Cargar datos del hotel al montar el componente
+	onMount(async () => {
+		const hotelId = parseInt($page.params.hotel_id);
+		const checkinDate = $page.url.searchParams.get('checkin_date') || '2026-01-31';
+		const checkoutDate = $page.url.searchParams.get('checkout_date') || '2026-02-01';
+		const adults = parseInt($page.url.searchParams.get('adults_number')) || 2;
+		const children = parseInt($page.url.searchParams.get('children_number')) || 0;
+
+		if (hotelId) {
+			// Limpiar el store antes de cargar nuevos datos
+			hotelDetailsStore.clearData();
+			await HotelDetailsService.loadHotelData(hotelId, checkinDate, checkoutDate, adults, children);
+		}
+	});
+
+	// Limpiar store cuando cambie el hotel_id
+	$: if ($page.params.hotel_id) {
+		const newHotelId = parseInt($page.params.hotel_id);
+		if (newHotelId && newHotelId !== $hotelDetailsStore.searchParams?.hotelId) {
+			// Limpiar store cuando cambie el hotel
+			hotelDetailsStore.clearData();
+		}
+	}
+
+	// Variables reactivas para el header
+	$: hotelName = $hotelDetailsStore.hotelDetails?.hotel_name || '---';
+	
+	$: hotelAddress = (() => {
+		const details = $hotelDetailsStore.hotelDetails;
+		if (details) {
+			return `${details.hotel_address_line} - <a href="#" class="text-blue-600 hover:underline font-semibold">Excelente ubicación - Ver en el mapa</a>`;
+		}
+		return '--- - <a href="#" class="text-blue-600 hover:underline font-semibold">--- - Ver en el mapa</a>';
+	})();
+	
+	$: starRating = (() => {
+		const details = $hotelDetailsStore.hotelDetails;
+		// Usar class (número de estrellas) o class_is_estimated como fallback
+		return details?.class ? HotelDetailsService.generateStarRating(details.class) : '---';
+	})();
+	
+	$: distanceToCenter = (() => {
+		const details = $hotelDetailsStore.hotelDetails;
+		if (details && details.distance_to_cc) {
+			return HotelDetailsService.getDistanceToCenter(details.distance_to_cc);
+		}
+		return '---';
+	})();
+
+	// Variables reactivas adicionales para otros datos dinámicos
+	$: hotelDescription = $hotelDetailsStore.hotelDetails?.hotel_facilities || 'Descripción no disponible';
+	$: hotelFacilities = $hotelDetailsStore.hotelDetails?.facilities_block?.facilities || [];
+	$: topBenefits = $hotelDetailsStore.hotelDetails?.top_ufi_benefits || [];
+	$: isLoading = $hotelDetailsStore.loading;
+	$: hasError = $hotelDetailsStore.error;
 </script>
 
 <svelte:head>
-	<title>Hotel Plaza Real - Booking</title>
-	<meta name="description" content="Detalles completos del hotel seleccionado" />
+	<title>{hotelName} - Booking</title>
+	<meta name="description" content="Detalles completos del hotel {hotelName}" />
 </svelte:head>
 
 <!-- Header completo con SearchForm -->
@@ -44,6 +104,38 @@
 <!-- Contenido principal -->
 <main class="min-h-screen max-w-[1100px] mx-auto mt-[20px]">
 	<div class="container mx-auto px-4 py-8">
+		
+		<!-- Estado de carga -->
+		{#if isLoading}
+			<div class="flex items-center justify-center py-12">
+				<div class="text-center">
+					<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+					<p class="text-gray-600">Cargando información del hotel...</p>
+				</div>
+			</div>
+		{/if}
+		
+		<!-- Estado de error -->
+		{#if hasError}
+			<div class="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+				<div class="flex items-center">
+					<div class="flex-shrink-0">
+						<svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+							<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+						</svg>
+					</div>
+					<div class="ml-3">
+						<h3 class="text-sm font-medium text-red-800">Error al cargar el hotel</h3>
+						<div class="mt-2 text-sm text-red-700">
+							<p>{hasError}</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
+		
+		<!-- Contenido principal (solo mostrar si no está cargando) -->
+		{#if !isLoading}
 		<!-- Ruta pagada -->
 		<div class="text-xs gap-2 flex flex-row justify-start items-center mb-4">
 			<a href="#" class="text-blue-600 hover:underline">Inicio</a>
@@ -87,10 +179,10 @@
 		<div class="flex flex-row justify-between items-start">
 			<div class="flex flex-col gap-2">
 				<img src="/assets/hotel/stars.png" alt="Stars" class="w-[180px] object-contain">
-				<p class="text-3xl font-bold">Hotel Plaza Real</p>
+				<p class="text-3xl font-bold">{hotelName}</p>
 				<div class="flex flex-row gap-2 items-end text-sm">
 					<img src="/assets/hotel/location.png" alt="Map" class="w-[15px] object-contain">
-					<p>Carrera 85 # 10-10 ZIP 100011, Bogotá, Colombia - <a href="#" class="text-blue-600 hover:underline font-semibold">Ubicación excelente - Ver en el mapa</a></p>
+					<p>{@html hotelAddress}</p>
 				</div>
 			</div>
 			<div class="flex flex-col gap-5 items-end justify-end">
@@ -111,7 +203,7 @@
 			<ImageGalleryDesktop images={fotos} />
 			
 			<!-- Galería para mobile -->
-			<ImageGalleryMobile />
+			<ImageGalleryMobile images={fotos} />
 		</div>
 
 		<!-- Description & Main specs -->
@@ -199,7 +291,6 @@
 				<button class="w-full bg-[#006CE4] text-white px-4 py-2 rounded-md font-semibold text-sm">Reserva ahora</button>
 			</div>
 		</div>
-	</div>
 
 
 
@@ -1118,6 +1209,7 @@
 			</div>
 		</div>
 	</div>
+	{/if}
 </main>
 
 <Footer />

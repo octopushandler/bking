@@ -39,8 +39,8 @@
 </script>
 
 <!-- Panel de filtros -->
-<div class="relative bg-white rounded-xl border border-zinc-200 p-6 mb-6">
-	<h3 class="text-lg font-semibold text-gray-900 mb-6">Filtrar por:</h3>
+<div class="relative bg-white rounded-xl border border-zinc-200 p-4 sm:p-6 mb-6">
+	<h3 class="text-lg font-semibold text-gray-900 mb-4 sm:mb-6">Filtrar por:</h3>
 	
 	<!-- Servicios y Amenidades -->
 	<div class="mb-6">

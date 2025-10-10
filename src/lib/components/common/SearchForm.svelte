@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { BOOKING_API_CONFIG, buildSearchUrl, getDestinationTypeConfig } from '$lib/config/api';
 	import DatePicker from './DatePicker.svelte';
+	import { notificationAPI } from '$lib/stores/notifications';
 	
 	// ===== PROPS =====
 	export let initialData = {
@@ -33,7 +34,6 @@
 	let isLoading = false;
 	let showDropdown = false;
 	let debounceTimer = null;
-	let errorMessage = '';
 	let userHasTyped = false; // Rastrea si el usuario ha modificado el campo
 	
 	// ===== ESTADO DE FECHAS =====
@@ -59,7 +59,6 @@
 	function handleInput(event) {
 		const target = event.target;
 		query = target.value;
-		errorMessage = '';
 		userHasTyped = true; // Marcar que el usuario ha escrito
 		
 		// Limpiar destino guardado cuando el usuario escribe algo nuevo
@@ -91,7 +90,6 @@
 		
 		isLoading = true;
 		showDropdown = true;
-		errorMessage = '';
 		
 		try {
 			const response = await fetch(buildSearchUrl(searchQuery), {
@@ -112,7 +110,25 @@
 			
 		} catch (error) {
 			console.error('Error buscando destinos:', error);
-			errorMessage = error instanceof Error ? error.message : 'Error desconocido al buscar destinos';
+			const errorMsg = error instanceof Error ? error.message : 'Error desconocido al buscar destinos';
+			
+			// Mostrar notificación de error
+			notificationAPI.error(
+				'Error de búsqueda',
+				errorMsg,
+				{
+					duration: 6000,
+					actions: [
+						{
+							id: 'retry',
+							label: 'Reintentar',
+							action: () => searchDestinations(searchQuery),
+							variant: 'primary'
+						}
+					]
+				}
+			);
+			
 			results = [];
 		} finally {
 			isLoading = false;
@@ -134,7 +150,6 @@
 		query = destination.name;
 		showDropdown = false;
 		results = [];
-		errorMessage = '';
 		userHasTyped = false; // Resetear porque el usuario seleccionó específicamente
 		
 		saveDestinationToStorage(destination);
@@ -260,7 +275,14 @@
 		for (const validation of validations) {
 			if (validation.condition) {
 				console.log('❌ Validación fallida:', validation.message);
-				errorMessage = validation.message;
+				
+				// Mostrar notificación de error de validación
+				notificationAPI.error(
+					'Formulario incompleto',
+					validation.message,
+					{ duration: 5000 }
+				);
+				
 				return false;
 			}
 		}
@@ -281,7 +303,11 @@
 			selectedDestination = await performAutoSearch(query.trim());
 			
 			if (!selectedDestination) {
-				errorMessage = 'No se encontraron destinos para tu búsqueda. Intenta con otro término.';
+				notificationAPI.error(
+					'Destino no encontrado',
+					'No se encontraron destinos para tu búsqueda. Intenta con otro término.',
+					{ duration: 6000 }
+				);
 				return;
 			}
 		} else if (initialData.destination) {
@@ -294,7 +320,11 @@
 			selectedDestination = await performAutoSearch(query.trim());
 			
 			if (!selectedDestination) {
-				errorMessage = 'No se encontraron destinos para tu búsqueda. Intenta con otro término.';
+				notificationAPI.error(
+					'Destino no encontrado',
+					'No se encontraron destinos para tu búsqueda. Intenta con otro término.',
+					{ duration: 6000 }
+				);
 				return;
 			}
 		}
@@ -491,17 +521,7 @@
 	});
 </script>
 
-<!-- Mensaje de error -->
-{#if errorMessage}
-	<div class="absolute top-0 left-0 right-0 mx-3 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-2 z-40">
-		<div class="flex items-center">
-			<svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-				<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
-			</svg>
-			{errorMessage}
-		</div>
-	</div>
-{/if}
+<!-- Mensajes de error ahora se manejan a través del sistema de notificaciones centralizado -->
 
 <div class="bg-[#ffb700] rounded-xl p-1 grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-1 absolute bottom-0 transform translate-y-1/2 left-0 right-0 mx-3">
 	<!-- Campo de destino con autocompletado -->
@@ -526,10 +546,6 @@
 					<div class="p-3 text-center text-gray-500">
 						<div class="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-[#003b95] mx-auto mb-2"></div>
 						Buscando destinos...
-					</div>
-				{:else if errorMessage}
-					<div class="p-3 text-center text-red-500">
-						{errorMessage}
 					</div>
 				{:else if results.length === 0 && query.trim().length > 1}
 					<div class="p-3 text-center text-gray-500">
