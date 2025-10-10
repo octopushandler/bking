@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reserva de Hotel - Holiday Inn Express Yopal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Minimal custom styles */
+        .step-line {
+            position: absolute;
+            top: 16px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: #e5e7eb;
+            z-index: 0;
+        }
+        .step-line-active {
+            background-color: #0071c2;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Stepper -->
+        <div class="mb-8">
+            <div class="relative flex items-center justify-between max-w-3xl mx-auto">
+                <div class="step-line"></div>
+                <div class="step-line step-line-active" style="width: 50%;"></div>
+                
+                <!-- Step 1 -->
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold mb-2">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <span class="text-xs font-medium text-gray-900">Tu selección</span>
+                </div>
+                
+                <!-- Step 2 -->
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold mb-2">
+                        2
+                    </div>
+                    <span class="text-xs font-medium text-gray-900">Tus datos</span>
+                </div>
+                
+                <!-- Step 3 -->
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-sm font-semibold mb-2">
+                        3
+                    </div>
+                    <span class="text-xs font-medium text-gray-500">Terminar reserva</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Two Column Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Column -->
+            <div class="lg:col-span-1 space-y-4">
+                <!-- Hotel Details Card -->
+                <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <img src="/placeholder.svg?height=200&width=400" alt="Holiday Inn Express Yopal" class="w-full h-48 object-cover">
+                    <div class="p-4">
+                        <div class="flex items-center gap-1 mb-2">
+                            <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20">
+                                <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/>
+                            </svg>
+                            <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20">
+                                <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/>
+                            </svg>
+                            <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20">
+                                <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/>
+                            </svg>
+                            <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20">
+                                <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/>
+                            </svg>
+                            <span class="ml-1 px-1.5 py-0.5 bg-yellow-400 text-white text-xs font-bold rounded">IH</span>
+                        </div>
+                        <h2 class="text-lg font-bold text-gray-900 mb-1">Holiday Inn Express Yopal by IHG</h2>
+                        <p class="text-sm text-gray-600 mb-2">Carrera 29 No. 13-04, 850001 Yopal, Colombia</p>
+                        <p class="text-xs text-green-700 mb-3">Excelente ubicación — 9,6</p>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="px-2 py-1 bg-blue-600 text-white text-sm font-bold rounded">9,0</span>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-900">Fantástico</p>
+                                <p class="text-xs text-gray-600">624 comentarios</p>
+                            </div>
+                        </div>
+                        <div class="space-y-1 text-sm text-gray-700">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                                </svg>
+                                <span>WiFi gratis</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                                </svg>
+                                <span>Traslado aeropuerto</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                </svg>
+                                <span>Parking</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"/>
+                                </svg>
+                                <span>Piscina</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reservation Details Card -->
+                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                    <h3 class="text-lg font-bold text-gray-900 mb-3">Los datos de tu reserva</h3>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900 mb-1">Entrada</p>
+                            <p class="text-sm text-gray-700">mar, 4 nov 2025</p>
+                            <p class="text-xs text-gray-600">De 16:00</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900 mb-1">Salida</p>
+                            <p class="text-sm text-gray-700">jue, 6 nov 2025</p>
+                            <p class="text-xs text-gray-600">A 12:00</p>
+                        </div>
+                    </div>
+                    <div class="border-t pt-3">
+                        <p class="text-sm font-semibold text-gray-900 mb-1">Has seleccionado</p>
+                        <p class="text-sm text-gray-700 mb-2">2 noches, 1 habitación para 2 adultos</p>
+                        <p class="text-sm text-gray-700">1 x Habitación Estándar - Cama extragrande</p>
+                        <button class="text-sm text-blue-600 hover:underline mt-2">Cambia tu selección</button>
+                    </div>
+                </div>
+
+                <!-- Price Breakdown Card -->
+                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                    <h3 class="text-lg font-bold text-gray-900 mb-3">Desglose del precio</h3>
+                    <div class="mb-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xl font-bold text-gray-900">Precio</span>
+                            <span class="text-xl font-bold text-gray-900">COP 489.300</span>
+                        </div>
+                        <p class="text-xs text-gray-600 text-right">Se pueden aplicar otros cargos</p>
+                        <p class="text-xs text-gray-600 text-right">En la moneda del alojamiento: US$126,40</p>
+                    </div>
+                    
+                    <div class="border-t pt-3 space-y-3">
+                        <h4 class="text-sm font-semibold text-gray-900">Información sobre el precio</h4>
+                        
+                        <div class="flex gap-2 text-sm">
+                            <svg class="w-5 h-5 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                            </svg>
+                            <p class="text-gray-700">No incluye <span class="font-semibold">COP 92.980</span> de impuestos y cargos</p>
+                        </div>
+                        <p class="text-sm text-gray-700 ml-7">19% IVA <span class="float-right">COP 92.980</span></p>
+                        
+                        <div class="flex gap-2 text-sm">
+                            <svg class="w-5 h-5 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <p class="text-gray-700">En función de la nacionalidad, pueden aplicarse cargos por IVA adicional. Se aceptan exenciones y deben enviarse a las autoridades antes de tu llegada.</p>
+                        </div>
+                        
+                        <div class="flex gap-2 text-sm">
+                            <svg class="w-5 h-5 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <p class="text-gray-700">Hemos convertido el precio para que veas el coste aproximado en COP. Pagarás en <span class="font-semibold">USD</span>. El tipo de cambio puede variar antes de que pagues.</p>
+                        </div>
+                        
+                        <div class="flex gap-2 text-sm">
+                            <svg class="w-5 h-5 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                            </svg>
+                            <p class="text-gray-700">Ten en cuenta que la entidad emisora de tu tarjeta puede aplicar cargos por transacción internacional.</p>
+                        </div>
+                        
+                        <button class="text-sm text-blue-600 hover:underline">Ver menos</button>
+                    </div>
+                </div>
+
+                <!-- Payment Calendar Card -->
+                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                    <h3 class="text-lg font-bold text-gray-900 mb-3">Calendario de pago</h3>
+                    <p class="text-sm text-gray-700">Pagarás por adelantado el precio de la primera noche durante los 7 días antes de la fecha de llegada.</p>
+                </div>
+
+                <!-- Cancellation Cost Card -->
+                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                    <h3 class="text-lg font-bold text-gray-900 mb-3">¿Cuánto cuesta cancelar?</h3>
+                    <p class="text-sm font-semibold text-green-700 mb-2">Cancelación gratis antes del 28 oct</p>
+                    <div class="flex justify-between text-sm text-gray-700">
+                        <span>A partir de las 0:00 del 28 oct</span>
+                        <span class="font-semibold">COP 244.660</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="lg:col-span-2 space-y-4">
+                <!-- Genius Promotion Banner -->
+                <div class="bg-white rounded-lg border border-blue-200 p-4 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-900 mb-2">Ahorra un 10% o más con esta opción al iniciar sesión en Genius, el programa de fidelización de Booking.com</p>
+                        <div class="flex gap-3">
+                            <button class="text-sm text-blue-600 font-semibold hover:underline">Iniciar sesión</button>
+                            <button class="text-sm text-blue-600 font-semibold hover:underline">Hazte una cuenta gratis</button>
+                        </div>
+                    </div>
+                    <div class="text-blue-600 font-bold text-2xl">Genius</div>
+                </div>
+
+                <!-- Contact Form -->
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">Introduce tus datos</h3>
+                    
+                    <div class="bg-orange-50 border border-orange-200 rounded p-3 mb-4 flex gap-2">
+                        <svg class="w-5 h-5 text-orange-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <p class="text-sm text-gray-900">¡Ya casi estás! Solo tienes que rellenar los campos marcados con <span class="text-red-600">*</span></p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-900 mb-1">Nombre <span class="text-red-600">*</span></label>
+                            <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-900 mb-1">Apellido <span class="text-red-600">*</span></label>
+                            <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-1">E-mail <span class="text-red-600">*</span></label>
+                        <input type="email" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-xs text-gray-600 mt-1">El e-mail de confirmación se enviará a esta dirección</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <span class="text-sm text-gray-900">Inicia sesión para ahorrar un 10% o más (opcional)</span>
+                        </label>
+                        <p class="text-xs text-gray-600 ml-6">Las personas con cuenta tienen un descuento inmediato, ¡y hacérsela es gratis!</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-1">País/región <span class="text-red-600">*</span></label>
+                        <select class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option>Colombia</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-1">Número de teléfono <span class="text-red-600">*</span></label>
+                        <div class="flex gap-2">
+                            <select class="w-32 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option>CO +57</option>
+                            </select>
+                            <input type="tel" class="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <p class="text-xs text-gray-600 mt-1">Para verificar la reserva y para que el alojamiento contacte contigo si es necesario</p>
+                    </div>
+
+                    <div>
+                        <label class="flex items-start gap-2">
+                            <input type="checkbox" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5" checked>
+                            <span class="text-sm text-gray-900">Sí, quiero recibir la confirmación digital gratis (recomendado)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Useful Information -->
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">Información útil</h3>
+                    <div class="flex gap-3">
+                        <svg class="w-6 h-6 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <p class="text-sm text-gray-900">Elige flexibilidad: puedes cancelar gratis antes del 28 de octubre de 2025, así que aprovecha este precio fantástico hoy mismo.</p>
+                    </div>
+                </div>
+
+                <!-- Room Details -->
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">Habitación Estándar - Cama extragrande</h3>
+                    
+                    <div class="space-y-3">
+                        <div class="flex items-start gap-2">
+                            <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <div>
+                                <p class="text-sm font-semibold text-green-700">Desayuno incluido en el precio</p>
+                                <p class="text-xs text-gray-600">8.3 Muy bien · 61 comentarios</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-2">
+                            <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <div>
+                                <p class="text-sm font-semibold text-green-700">Cancelación gratis antes del 28 de octubre de 2025</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-2">
+                            <svg class="w-5 h-5 text-gray-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                            </svg>
+                            <p class="text-sm text-gray-700"><span class="font-semibold">Personas:</span> 2 adultos</p>
+                        </div>
+
+                        <button class="text-sm text-blue-600 hover:underline">Añadir los datos del cliente principal</button>
+
+                        <div class="pt-3 border-t space-y-2">
+                            <div class="flex items-center gap-2 text-sm text-gray-700">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                </svg>
+                                <span>Habitaciones impecables: 9,3</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-sm text-gray-700">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                </svg>
+                                <span>No se puede fumar</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add-on Options -->
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">Opciones para añadir a tu reserva</h3>
+                    
+                    <div class="space-y-4">
+                        <label class="flex items-start gap-3 p-4 border border-gray-200 rounded hover:border-blue-500 cursor-pointer">
+                            <input type="checkbox" class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5">
+                            <div class="flex-1">
+                                <p class="text-sm font-semibold text-gray-900 mb-1">Quiero solicitar el servicio de traslado desde el aeropuerto</p>
+                                <p class="text-xs text-gray-600">Le diremos al alojamiento que te interesa este servicio para que puedan enviarte más información además de los precios.</p>
+                            </div>
+                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                            </svg>
+                        </label>
+
+                        <label class="flex items-start gap-3 p-4 border border-gray-200 rounded hover:border-blue-500 cursor-pointer">
+                            <input type="checkbox" class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5">
+                            <div class="flex-1">
+                                <p class="text-sm font-semibold text-gray-900 mb-1">Necesitaré un vuelo para mi viaje</p>
+                                <p class="text-xs text-gray-600">Ahórrate el estrés de buscar: añadiremos opciones de vuelos (que ofrece Booking.com) a tu destino en la confirmación de la reserva.</p>
+                            </div>
+                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>
+                            </svg>
+                        </label>
+
+                        <label class="flex items-start gap-3 p-4 border border-gray-200 rounded hover:border-blue-500 cursor-pointer">
+                            <input type="checkbox" class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5">
+                            <div class="flex-1">
+                                <p class="text-sm font-semibold text-gray-900 mb-1">Quiero alquilar un coche</p>
+                                <p class="text-xs text-gray-600">¡Aprovecha al máximo el viaje! Consulta las opciones de alquiler de coches en la confirmación de la reserva.</p>
+                            </div>
+                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                            </svg>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Special Requests -->
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">Peticiones especiales</h3>
+                    
+                    <p class="text-sm text-gray-700 mb-3">Las peticiones especiales no se pueden garantizar, pero el alojamiento hará todo lo posible por satisfacerlas. ¡También puedes enviarnos tu petición especial cuando hayas realizado la reserva!</p>
+                    
+                    <label class="block text-sm font-medium text-gray-900 mb-2">Escribe tus peticiones en inglés o en español. <span class="text-gray-500">(opcional)</span></label>
+                    <textarea rows="4" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4" placeholder=""></textarea>
+                    
+                    <label class="flex items-start gap-2">
+                        <input type="checkbox" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5">
+                        <span class="text-sm text-gray-900">Quiero parking privado gratis en el establecimiento</span>
+                    </label>
+                </div>
+
+                <!-- Arrival Time -->
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">Tu hora de llegada</h3>
+                    
+                    <div class="space-y-3 mb-4">
+                        <div class="flex gap-3">
+                            <svg class="w-6 h-6 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            <p class="text-sm text-gray-900">Tu habitación estará lista para el check-in a las 16:00</p>
+                        </div>
+                        
+                        <div class="flex gap-3">
+                            <svg class="w-6 h-6 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <p class="text-sm text-gray-900">Recepción 24 horas — ¡Tendrás ayuda siempre que la necesites!</p>
+                        </div>
+                    </div>
+                    
+                    <label class="block text-sm font-medium text-gray-900 mb-2">Añade tu hora de llegada aproximada <span class="text-gray-500">(opcional)</span></label>
+                    <select class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
+                        <option>Indica una hora</option>
+                        <option>00:00 - 01:00</option>
+                        <option>01:00 - 02:00</option>
+                        <option>02:00 - 03:00</option>
+                        <option>03:00 - 04:00</option>
+                        <option>04:00 - 05:00</option>
+                        <option>05:00 - 06:00</option>
+                        <option>06:00 - 07:00</option>
+                        <option>07:00 - 08:00</option>
+                        <option>08:00 - 09:00</option>
+                        <option>09:00 - 10:00</option>
+                        <option>10:00 - 11:00</option>
+                        <option>11:00 - 12:00</option>
+                        <option>12:00 - 13:00</option>
+                        <option>13:00 - 14:00</option>
+                        <option>14:00 - 15:00</option>
+                        <option>15:00 - 16:00</option>
+                        <option>16:00 - 17:00</option>
+                        <option>17:00 - 18:00</option>
+                        <option>18:00 - 19:00</option>
+                        <option>19:00 - 20:00</option>
+                        <option>20:00 - 21:00</option>
+                        <option>21:00 - 22:00</option>
+                        <option>22:00 - 23:00</option>
+                        <option>23:00 - 00:00</option>
+                    </select>
+                    <p class="text-xs text-gray-600">Hora de la zona horaria de Yopal</p>
+                </div>
+
+                <!-- Continue Button -->
+                <div class="flex items-center justify-between pt-4">
+                    <button class="text-blue-600 hover:underline flex items-center gap-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                        </svg>
+                        Igualamos el precio
+                    </button>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded flex items-center gap-2">
+                        Siguiente: últimos datos
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

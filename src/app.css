@@ -150,3 +150,32 @@ body {
 		font-size: 16px;
 	}
 }
+
+/* Estilos para la tabla de habitaciones */
+.checkmark::before {
+	content: '✓';
+	color: #008009;
+	font-weight: bold;
+}
+
+.xmark::before {
+	content: '✗';
+	color: #cc0000;
+	font-weight: bold;
+}
+
+/* Estilos para la sección de comentarios */
+.rating-bar {
+	height: 8px;
+	border-radius: 4px;
+	transition: width 0.3s ease;
+}
+
+/* Estilos para la sección de normas de la casa */
+.icon-circle {
+	width: 24px;
+	height: 24px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
