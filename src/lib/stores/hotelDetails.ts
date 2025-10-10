@@ -17,6 +17,11 @@ export interface HotelPhoto {
 	}>;
 }
 
+export interface HotelDescription {
+	description: string;
+	languagecode: string;
+}
+
 export interface HotelDetails {
 	hotel_id: number;
 	hotel_name: string;
@@ -229,6 +234,7 @@ export interface HotelDetailsState {
 	hotelDetails: HotelDetails | null;
 	roomAvailability: RoomAvailability | null;
 	hotelPhotos: HotelPhoto[] | null;
+	hotelDescription: HotelDescription | null;
 	loading: boolean;
 	error: string | null;
 	searchParams: {
@@ -244,6 +250,7 @@ const initialState: HotelDetailsState = {
 	hotelDetails: null,
 	roomAvailability: null,
 	hotelPhotos: null,
+	hotelDescription: null,
 	loading: false,
 	error: null,
 	searchParams: null
@@ -274,6 +281,10 @@ function createHotelDetailsStore() {
 		
 		setHotelPhotos: (hotelPhotos: HotelPhoto[]) => {
 			update(state => ({ ...state, hotelPhotos, error: null, loading: false }));
+		},
+		
+		setHotelDescription: (hotelDescription: HotelDescription) => {
+			update(state => ({ ...state, hotelDescription, error: null, loading: false }));
 		},
 		
 		setSearchParams: (searchParams: HotelDetailsState['searchParams']) => {

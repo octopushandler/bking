@@ -81,7 +81,7 @@
 	})();
 
 	// Variables reactivas adicionales para otros datos dinámicos
-	$: hotelDescription = $hotelDetailsStore.hotelDetails?.hotel_facilities || 'Descripción no disponible';
+	$: hotelDescription = $hotelDetailsStore.hotelDescription?.description || 'Descripción no disponible';
 	$: hotelFacilities = $hotelDetailsStore.hotelDetails?.facilities_block?.facilities || [];
 	$: topBenefits = $hotelDetailsStore.hotelDetails?.top_ufi_benefits || [];
 	$: isLoading = $hotelDetailsStore.loading;
@@ -209,11 +209,7 @@
 		<!-- Description & Main specs -->
 		<div class="grid grid-cols-4 w-full mt-8">
 			<div class="col-span-3 flex flex-col gap-4">
-				<p class="text-sm text-gray-900">El Holiday Inn Express Yopal ofrece piscina al aire libre, conexión WiFi gratuita y centro de fitness y se encuentra en Yopal, Colombia. La Brigada XVI está a 8 minutos en coche.</p>
-				<p class="text-sm text-gray-900">Las habitaciones disponen de TV de pantalla plana, aire acondicionado, escritorio, caja fuerte, minibar y cafetera.</p>
-				<p class="text-sm text-gray-900">El Yopal Holiday Inn Express cuenta con recepción 24 horas, mostrador de información turística, consigna de equipaje y aparcamiento gratuito.</p>
-				<p class="text-sm text-gray-900">El hospital de Yopal se encuentra a 450 metros y el centro educativo Braulio González, a 500 metros. La alcaldía municipal está a 2,1 km.</p>
-				<p class="text-sm text-gray-900">A las parejas les encanta la ubicación — Le han puesto un <b>9,7</b> para viajes de dos personas.</p>
+				<div class="text-sm text-gray-900 whitespace-pre-line">{hotelDescription}</div>
 				<span class="text-xs text-gray-600">Las distancias en la descripción del alojamiento se calculan con OpenStreetMap©</span>
 
 				<div>

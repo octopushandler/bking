@@ -1,4 +1,4 @@
-import { hotelDetailsStore, type HotelDetails, type RoomAvailability, type HotelPhoto } from '$lib/stores/hotelDetails';
+import { hotelDetailsStore, type HotelDetails, type RoomAvailability, type HotelPhoto, type HotelDescription } from '$lib/stores/hotelDetails';
 import { buildHotelDetailsUrl, buildHotelRoomsUrl, BOOKING_API_CONFIG } from '$lib/config/api';
 import { fetchWithRetry, handleApiError } from '$lib/utils/apiHelpers';
 import { notificationAPI } from '$lib/stores/notifications';
@@ -52,6 +52,46 @@ export class HotelDetailsService {
 			);
 			
 			hotelDetailsStore.setError(errorMessage);
+			return null;
+		}
+	}
+
+	/**
+	 * Carga la descripción del hotel desde la API
+	 */
+	static async loadHotelDescription(hotelId: number, locale: string = 'es-mx'): Promise<HotelDescription | null> {
+		try {
+			const url = `https://${BOOKING_API_CONFIG.HEADERS['x-rapidapi-host']}/v2/hotels/description?hotel_id=${hotelId}&locale=${locale}`;
+			
+			const response = await fetchWithRetry(url, {
+				method: 'GET',
+				headers: BOOKING_API_CONFIG.HEADERS
+			}, {
+				timeout: 15000,
+				maxRetries: 3,
+				retryDelay: 1000
+			});
+
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
+
+			const data: HotelDescription = await response.json();
+			
+			hotelDetailsStore.setHotelDescription(data);
+			return data;
+			
+		} catch (error) {
+			console.error('Error loading hotel description:', error);
+			const errorMessage = handleApiError(error as any, 'carga de descripción del hotel');
+			
+			notificationAPI.warning(
+				'Descripción no disponible',
+				'No se pudo cargar la descripción del hotel, se mostrará información por defecto.',
+				{ duration: 5000 }
+			);
+			
+			// No marcamos como error crítico, solo mostramos warning
 			return null;
 		}
 	}
@@ -156,7 +196,7 @@ export class HotelDetailsService {
 	}
 
 	/**
-	 * Carga todos los datos del hotel (detalles + habitaciones + fotos)
+	 * Carga todos los datos del hotel (detalles + habitaciones + fotos + descripción)
 	 */
 	static async loadHotelData(
 		hotelId: number, 
@@ -165,21 +205,22 @@ export class HotelDetailsService {
 		adults: number = 2, 
 		children: number = 0,
 		childrenAges: number[] = []
-	): Promise<{ hotelDetails: HotelDetails | null; roomAvailability: RoomAvailability | null; hotelPhotos: HotelPhoto[] | null }> {
+	): Promise<{ hotelDetails: HotelDetails | null; roomAvailability: RoomAvailability | null; hotelPhotos: HotelPhoto[] | null; hotelDescription: HotelDescription | null }> {
 		try {
 			// Establecer parámetros de búsqueda
 			hotelDetailsStore.setSearchParams({ hotelId, checkinDate, checkoutDate, adults, children });
 			
-			// Cargar detalles del hotel y fotos en paralelo (rooms pausado)
-			const [hotelDetails, hotelPhotos] = await Promise.all([
+			// Cargar detalles del hotel, fotos y descripción en paralelo (rooms pausado)
+			const [hotelDetails, hotelPhotos, hotelDescription] = await Promise.all([
 				this.loadHotelDetails(hotelId, checkinDate, checkoutDate),
 				// this.loadRoomAvailability(hotelId, checkinDate, checkoutDate, adults, children, childrenAges), // PAUSADO
-				this.loadHotelPhotos(hotelId)
+				this.loadHotelPhotos(hotelId),
+				this.loadHotelDescription(hotelId)
 			]);
 			
 			const roomAvailability = null; // PAUSADO
 
-			return { hotelDetails, roomAvailability, hotelPhotos };
+			return { hotelDetails, roomAvailability, hotelPhotos, hotelDescription };
 			
 		} catch (error) {
 			console.error('Error loading hotel data:', error);
@@ -205,7 +246,7 @@ export class HotelDetailsService {
 			);
 			
 			hotelDetailsStore.setError(errorMessage);
-			return { hotelDetails: null, roomAvailability: null, hotelPhotos: null };
+			return { hotelDetails: null, roomAvailability: null, hotelPhotos: null, hotelDescription: null };
 		}
 	}
 
