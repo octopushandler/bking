@@ -4,6 +4,7 @@
 	import { BOOKING_API_CONFIG, buildSearchUrl, getDestinationTypeConfig } from '$lib/config/api';
 	import DatePicker from './DatePicker.svelte';
 	import { notificationAPI } from '$lib/stores/notifications';
+	import { StorageService } from '$lib/services/storageService';
 	
 	// ===== PROPS =====
 	export let initialData = {
@@ -62,9 +63,7 @@
 		userHasTyped = true; // Marcar que el usuario ha escrito
 		
 		// Limpiar destino guardado cuando el usuario escribe algo nuevo
-		if (typeof window !== 'undefined') {
-			localStorage.removeItem('selectedDestination');
-		}
+		StorageService.clearDestination();
 		
 		clearDebounceTimer();
 		
@@ -156,9 +155,7 @@
 	}
 	
 	function saveDestinationToStorage(destination) {
-		if (typeof window !== 'undefined') {
-			localStorage.setItem('selectedDestination', JSON.stringify(destination));
-		}
+		StorageService.saveDestination(destination);
 	}
 	
 	function closeDropdown() {
@@ -413,10 +410,8 @@
 	}
 	
 	function saveGuestDataToStorage() {
-		if (typeof window !== 'undefined') {
-			const guestData = { adults, children, rooms, pets };
-			localStorage.setItem('guestSelection', JSON.stringify(guestData));
-		}
+		const guestData = { adults, children, rooms, pets };
+		StorageService.saveGuestData(guestData, 'searchForm');
 	}
 	
 	// ===== FUNCIONES DE INICIALIZACIÓN =====
@@ -437,19 +432,14 @@
 			children = initialData.children || 0;
 			rooms = initialData.rooms || 1;
 			pets = initialData.pets || false;
-		} else if (typeof window !== 'undefined') {
-			// Si no hay datos iniciales, cargar del localStorage
-			const savedGuestData = localStorage.getItem('guestSelection');
+		} else {
+			// Si no hay datos iniciales, cargar del localStorage usando el servicio
+			const savedGuestData = StorageService.loadGuestData('searchForm');
 			if (savedGuestData) {
-				try {
-					const guestData = JSON.parse(savedGuestData);
-					adults = guestData.adults || 2;
-					children = guestData.children || 0;
-					rooms = guestData.rooms || 1;
-					pets = guestData.pets || false;
-				} catch (error) {
-					console.error('Error cargando datos de huéspedes:', error);
-				}
+				adults = savedGuestData.adults || 2;
+				children = savedGuestData.children || 0;
+				rooms = savedGuestData.rooms || 1;
+				pets = savedGuestData.pets || false;
 			}
 		}
 	}

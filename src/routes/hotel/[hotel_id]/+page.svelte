@@ -10,6 +10,8 @@
 	import ImageGalleryDesktop from '$lib/components/hotel/ImageGalleryDesktop.svelte';
 	import ImageGalleryMobile from '$lib/components/hotel/ImageGalleryMobile.svelte';
 	import { hotelDetailsStore } from '$lib/stores/hotelDetails';
+	import { hotelReviewsStore } from '$lib/stores/hotelReviews';
+	import { reservationStore } from '$lib/stores/reservation';
 	import { HotelDetailsService } from '$lib/services/hotelDetailsService';
 
 	// Estado para controlar el colapso de las opciones de habitación
@@ -31,27 +33,77 @@
 		{ src: '---', alt: '---' }
 	];
 
-	// Cargar datos del hotel al montar el componente
-	onMount(async () => {
+	// Variable para controlar si ya se cargaron los datos para este hotel
+	let lastLoadedHotelId = 0;
+	let isInitialLoad = true;
+
+	// Cargar datos del hotel al montar el componente o cuando cambie el hotel_id
+	$: if ($page.params.hotel_id) {
 		const hotelId = parseInt($page.params.hotel_id);
+		if (hotelId && hotelId !== lastLoadedHotelId) {
+			loadHotelData(hotelId);
+		}
+	}
+
+	async function loadHotelData(hotelId: number) {
+		console.log(`🚀 [PAGE] Iniciando carga para hotel ID: ${hotelId}`);
+		
+		// Evitar múltiples cargas simultáneas
+		if (lastLoadedHotelId === hotelId && !isInitialLoad) {
+			console.log('⏳ Datos ya cargados para este hotel, omitiendo carga');
+			return;
+		}
+
+		lastLoadedHotelId = hotelId;
+		isInitialLoad = false;
+
 		const checkinDate = $page.url.searchParams.get('checkin_date') || '2026-01-31';
 		const checkoutDate = $page.url.searchParams.get('checkout_date') || '2026-02-01';
 		const adults = parseInt($page.url.searchParams.get('adults_number')) || 2;
 		const children = parseInt($page.url.searchParams.get('children_number')) || 0;
+		const rooms = parseInt($page.url.searchParams.get('room_number')) || 1;
+		const pets = $page.url.searchParams.get('pets') === 'true';
 
-		if (hotelId) {
-			// Limpiar el store antes de cargar nuevos datos
-			hotelDetailsStore.clearData();
-			await HotelDetailsService.loadHotelData(hotelId, checkinDate, checkoutDate, adults, children);
-		}
-	});
+		console.log(`📋 [PAGE] Parámetros para hotel ${hotelId}:`, { checkinDate, checkoutDate, adults, children, rooms, pets });
 
-	// Limpiar store cuando cambie el hotel_id
-	$: if ($page.params.hotel_id) {
-		const newHotelId = parseInt($page.params.hotel_id);
-		if (newHotelId && newHotelId !== $hotelDetailsStore.searchParams?.hotelId) {
-			// Limpiar store cuando cambie el hotel
+		try {
+			console.log(`🧹 [PAGE] Limpiando store para hotel ${hotelId}`);
+			// Limpiar el store solo cuando sea necesario
 			hotelDetailsStore.clearData();
+			
+			console.log(`📞 [PAGE] Llamando a HotelDetailsService.loadHotelData para hotel ${hotelId}`);
+			const hotelData = await HotelDetailsService.loadHotelData(hotelId, checkinDate, checkoutDate, adults, children);
+			
+			console.log(`📊 [PAGE] Datos recibidos para hotel ${hotelId}:`, {
+				hasDetails: !!hotelData.hotelDetails,
+				hasPhotos: !!hotelData.hotelPhotos,
+				hasDescription: !!hotelData.hotelDescription,
+				hasRoomList: !!hotelData.roomList
+			});
+			
+			// Inicializar el store de reserva con todos los datos del hotel
+			if (hotelData.hotelDetails) {
+				console.log(`💾 [PAGE] Inicializando reserva para hotel ${hotelId}`);
+				reservationStore.initializeReservation(
+					hotelData.hotelDetails,
+					hotelData.hotelPhotos,
+					hotelData.hotelDescription,
+					hotelData.roomList,
+					{
+						checkInDate: checkinDate,
+						checkOutDate: checkoutDate,
+						adults,
+						children,
+						rooms,
+						pets
+					}
+				);
+				console.log(`✅ [PAGE] Reserva inicializada para hotel ${hotelId}`);
+			} else {
+				console.log(`❌ [PAGE] No hay detalles del hotel ${hotelId}, no se puede inicializar reserva`);
+			}
+		} catch (error) {
+			console.error(`💥 [PAGE] Error cargando datos del hotel ${hotelId}:`, error);
 		}
 	}
 
@@ -61,9 +113,9 @@
 	$: hotelAddress = (() => {
 		const details = $hotelDetailsStore.hotelDetails;
 		if (details) {
-			return `${details.hotel_address_line} - <a href="#" class="text-blue-600 hover:underline font-semibold">Excelente ubicación - Ver en el mapa</a>`;
+			return `${details.hotel_address_line} - <span class="text-blue-600 hover:underline font-semibold cursor-pointer">Excelente ubicación - Ver en el mapa</span>`;
 		}
-		return '--- - <a href="#" class="text-blue-600 hover:underline font-semibold">--- - Ver en el mapa</a>';
+		return '--- - <span class="text-blue-600 hover:underline font-semibold cursor-pointer">--- - Ver en el mapa</span>';
 	})();
 	
 	$: starRating = (() => {
@@ -86,6 +138,144 @@
 	$: topBenefits = $hotelDetailsStore.hotelDetails?.top_ufi_benefits || [];
 	$: isLoading = $hotelDetailsStore.loading;
 	$: hasError = $hotelDetailsStore.error;
+	
+	// Variables reactivas para la tabla de habitaciones
+	$: roomList = $hotelDetailsStore.roomList;
+	$: groupedRooms = HotelDetailsService.groupRoomsByType(roomList);
+	$: hasRoomData = groupedRooms.length > 0;
+	
+	// Variables reactivas para reviews
+	$: hotelId = parseInt($page.params.hotel_id);
+	$: hotelReviewsData = (() => {
+		if (hotelId && !isNaN(hotelId)) {
+			// Generar reviews si no existen para este hotel (solo una vez)
+			if (!hotelReviewsStore.getReviewsForHotel(hotelId)) {
+				hotelReviewsStore.generateReviewsForHotel(hotelId);
+			}
+			return hotelReviewsStore.getReviewsForHotel(hotelId);
+		}
+		return null;
+	})();
+	$: overallRating = hotelReviewsData?.overallRating || null;
+	$: categoryRatings = hotelReviewsData?.categoryRatings || [];
+	$: userReviews = hotelReviewsData?.userReviews || [];
+	
+	// Variables reactivas para la reserva
+	$: reservationData = $reservationStore;
+	$: selectedRooms = $reservationStore.selectedRooms;
+	$: reservationTotals = $reservationStore.totals;
+	$: isReservationValid = $reservationStore.isValid;
+	
+	// Funciones para manejar la selección de habitaciones
+	function handleRoomQuantityChange(roomData: any, quantity: number) {
+		console.log('🔄 Cambiando cantidad de habitación:', { roomData, quantity });
+		if (quantity === 0) {
+			reservationStore.removeRoomFromReservation(roomData.room_id);
+		} else {
+			reservationStore.addRoomToReservation(roomData, quantity);
+		}
+		// Forzar validación después del cambio
+		reservationStore.validateReservation();
+	}
+	
+	function getSelectedRoomQuantity(roomId: number): number {
+		const selectedRoom = selectedRooms.find(room => room.roomId === roomId);
+		return selectedRoom ? selectedRoom.quantity : 0;
+	}
+	
+	function navigateToResume() {
+		if (isReservationValid) {
+			window.location.href = '/resume';
+		} else {
+			alert('Por favor selecciona al menos una habitación para continuar');
+		}
+	}
+	
+	// Variable para controlar si ya se está cargando
+	let isLoadingNewData = false;
+	let lastUpdateParams = '';
+	
+	function handleDateGuestChange(newData: any) {
+		// Crear una clave única para estos parámetros
+		const paramsKey = `${newData.checkInDate}-${newData.checkOutDate}-${newData.adults}-${newData.children}`;
+		
+		// Evitar múltiples cargas simultáneas o cargas duplicadas
+		if (isLoadingNewData || lastUpdateParams === paramsKey) {
+			console.log('⏳ Ya se está cargando nueva información o parámetros duplicados, ignorando solicitud');
+			return;
+		}
+		
+		lastUpdateParams = paramsKey;
+		isLoadingNewData = true;
+		
+		// Actualizar parámetros de búsqueda en el store de reserva
+		reservationStore.updateSearchParams(newData);
+		
+		// Solo recargar la lista de habitaciones, no todos los datos del hotel
+		const hotelId = parseInt($page.params.hotel_id);
+		if (hotelId) {
+			// Solo recargar la lista de habitaciones que es lo que realmente cambia
+			HotelDetailsService.loadRoomList(
+				hotelId, 
+				newData.checkInDate, 
+				newData.checkOutDate, 
+				newData.adults, 
+				newData.children
+			).then(roomList => {
+				if (roomList) {
+					// Actualizar solo la lista de habitaciones en el store de reservas
+					const currentReservation = reservationStore.getReservationSummary();
+					if (currentReservation && currentReservation.hotel.hotelDetails) {
+						reservationStore.initializeReservation(
+							currentReservation.hotel.hotelDetails,
+							currentReservation.hotel.hotelPhotos,
+							currentReservation.hotel.hotelDescription,
+							roomList,
+							newData
+						);
+					}
+				}
+			}).catch(error => {
+				console.error('Error actualizando lista de habitaciones:', error);
+			}).finally(() => {
+				isLoadingNewData = false;
+				// Resetear la clave después de un delay para permitir futuras actualizaciones
+				setTimeout(() => {
+					lastUpdateParams = '';
+				}, 1000);
+			});
+		} else {
+			isLoadingNewData = false;
+			lastUpdateParams = '';
+		}
+	}
+	
+	function createRoomChangeHandler(roomData: any) {
+		return (event: Event) => {
+			const target = event.target as HTMLSelectElement;
+			const quantity = parseInt(target.value);
+			handleRoomQuantityChange(roomData, quantity);
+		};
+	}
+	
+	// Variable reactiva para el resumen de la reserva
+	$: reservationSummary = (() => {
+		if (selectedRooms.length === 0) {
+			return {
+				hasSelection: false,
+				text: '• Todavía no se te cobrará nada'
+			};
+		}
+		
+		const totalRooms = selectedRooms.reduce((sum, room) => sum + room.quantity, 0);
+		const totalNights = selectedRooms[0]?.totalNights || 0;
+		const totalAmount = reservationTotals.total;
+		
+		return {
+			hasSelection: true,
+			text: `• ${totalRooms} habitación${totalRooms > 1 ? 'es' : ''} • ${totalNights} noche${totalNights > 1 ? 's' : ''} • ${totalAmount.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}`
+		};
+	})();
 </script>
 
 <svelte:head>
@@ -138,17 +328,17 @@
 		{#if !isLoading}
 		<!-- Ruta pagada -->
 		<div class="text-xs gap-2 flex flex-row justify-start items-center mb-4">
-			<a href="#" class="text-blue-600 hover:underline">Inicio</a>
+			<span class="text-blue-600 hover:underline cursor-pointer">Inicio</span>
 			<span>></span>
-			<a href="#" class="text-blue-600 hover:underline">Hoteles</a>
+			<span class="text-blue-600 hover:underline cursor-pointer">Hoteles</span>
 			<span>></span>
-			<a href="#" class="text-blue-600 hover:underline">Colombia</a>
+			<span class="text-blue-600 hover:underline cursor-pointer">{$hotelDetailsStore.hotelDetails?.country_trans || 'Colombia'}</span>
 			<span>></span>
-			<a href="#" class="text-blue-600 hover:underline">Cundinamarca</a>
+			<span class="text-blue-600 hover:underline cursor-pointer">{$hotelDetailsStore.hotelDetails?.district || 'Cundinamarca'}</span>
 			<span>></span>
-			<a href="#" class="text-blue-600 hover:underline">Bogotá</a>
+			<span class="text-blue-600 hover:underline cursor-pointer">{$hotelDetailsStore.hotelDetails?.city_trans || 'Bogotá'}</span>
 			<span>></span>
-			<span>Ofertas en el Hotel Plaza Real (Hotel) (Colombia)</span>
+			<span>Ofertas en el {$hotelDetailsStore.hotelDetails?.hotel_name || 'Hotel Plaza Real'} ({$hotelDetailsStore.hotelDetails?.accommodation_type_name || 'Hotel'}) ({$hotelDetailsStore.hotelDetails?.country_trans || 'Colombia'})</span>
 		</div>
 
 		<!-- Tabs -->
@@ -188,11 +378,19 @@
 			<div class="flex flex-col gap-5 items-end justify-end">
 				<div class="flex flex-row gap-5 items-center">
 					<img src="/assets/hotel/share_heart.png" alt="Hotel" class="w-[90px] object-contain">
-					<button class="bg-[#006CE4] text-white px-4 py-2 rounded-lg font-semibold text-sm">Reserva ahora</button>
+					<button 
+						class="bg-[#006CE4] text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-[#005bb5] transition-colors"
+						on:click={navigateToResume}
+					>
+						Reserva ahora
+					</button>
+					<div class="text-xs text-gray-600 mt-1">
+						{reservationSummary.text}
+					</div>
 				</div>
 				<div class="flex flex-row gap-3 items-center">
 					<img src="/assets/hotel/tag.png" alt="Equal Price" class="w-[20px] object-contain">
-					<a href="#" class="text-blue-600 hover:underline font-semibold text-sm">Igualamos el precio</a>
+					<span class="text-blue-600 hover:underline font-semibold text-sm cursor-pointer">Igualamos el precio</span>
 				</div>
 			</div>
 		</div>
@@ -284,7 +482,15 @@
 					</div>
 				</div>
 
-				<button class="w-full bg-[#006CE4] text-white px-4 py-2 rounded-md font-semibold text-sm">Reserva ahora</button>
+				<button 
+					class="w-full bg-[#006CE4] text-white px-4 py-2 rounded-md font-semibold text-sm hover:bg-[#005bb5] transition-colors"
+					on:click={navigateToResume}
+				>
+					Reserva ahora
+				</button>
+				<div class="text-xs text-gray-600 mt-2 text-center">
+					{reservationSummary.text}
+				</div>
 			</div>
 		</div>
 
@@ -299,13 +505,14 @@
 		<div class="mb-6">
 			<DateGuestPicker 
 				initialData={{
-					checkInDate: $page.url.searchParams.get('checkin_date') || '',
-					checkOutDate: $page.url.searchParams.get('checkout_date') || '',
-					adults: parseInt($page.url.searchParams.get('adults_number')) || 2,
-					children: parseInt($page.url.searchParams.get('children_number')) || 0,
-					rooms: parseInt($page.url.searchParams.get('room_number')) || 1,
-					pets: false
+					checkInDate: reservationData.searchParams.checkInDate,
+					checkOutDate: reservationData.searchParams.checkOutDate,
+					adults: reservationData.searchParams.adults,
+					children: reservationData.searchParams.children,
+					rooms: reservationData.searchParams.rooms,
+					pets: reservationData.searchParams.pets
 				}}
+				on:dataChange={(e) => handleDateGuestChange(e.detail)}
 			/>
 		</div>
 
@@ -326,413 +533,166 @@
 
 		<!-- Tabla de habitaciones -->
 		<div class="bg-white rounded-lg shadow-sm">
-			<div class="overflow-x-auto">
-				<table class="w-full border-collapse">
-					<!-- Encabezados -->
-					<thead>
-						<tr class="bg-blue-600 text-white">
-							<th class="text-left p-3 font-semibold text-sm border-r border-blue-500">Tipo de habitación</th>
-							<th class="text-left p-3 font-semibold text-sm border-r border-blue-500">Número de personas</th>
-							<th class="text-left p-3 font-semibold text-sm border-r border-blue-500">Precio para 2 noches</th>
-							<th class="text-left p-3 font-semibold text-sm border-r border-blue-500">Tus opciones</th>
-							<th class="text-left p-3 font-semibold text-sm">Seleccionar habitaciones</th>
-						</tr>
-					</thead>
-					<tbody>
-						<!-- Habitación 1 - Primera variación -->
-						<tr class="border-b border-gray-200">
-							<!-- Columna de tipo de habitación con rowspan=3 -->
-							<td rowspan="3" class="p-4 border-r border-gray-200 align-top bg-gray-50">
-								<div class="space-y-3">
-									<a href="#" class="text-blue-600 hover:underline font-semibold text-base">
-										Habitación Estándar - Cama extragrande
-									</a>
-									
-									<div class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-										Recomendado para 2 adultos
-									</div>
-									
-									<div class="flex items-center gap-1 text-red-600 text-sm font-semibold">
-										<span class="text-lg">🔴</span>
-										<span>Nos quedan 6</span>
-									</div>
-									
-									<div class="text-sm text-gray-700">
-										1 cama doble extragrande
-										<div class="mt-1">🛏️</div>
-									</div>
-									
-									<div class="space-y-2 text-sm text-gray-700">
-										<div class="flex items-start gap-2">
-											<span>📐</span>
-											<span>Habitación</span>
-											<span>🔲</span>
-											<span>21 m²</span>
-										</div>
-										<div class="flex items-start gap-2">
-											<span>🏙️</span>
-											<span>Vista a la ciudad</span>
-										</div>
-										<div class="flex items-start gap-2">
-											<span>❄️</span>
-											<span>Aire acondicionado</span>
-										</div>
-										<div class="flex items-start gap-2">
-											<span>🚿</span>
-											<span>Baño en la habitación</span>
-										</div>
-										<div class="flex items-start gap-2">
-											<span>📺</span>
-											<span>TV de pantalla plana</span>
-										</div>
-										<div class="flex items-start gap-2">
-											<span>☕</span>
-											<span>Cafetera</span>
-										</div>
-									</div>
-									
-									<div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 pt-2 border-t border-gray-200">
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Artículos de aseo gratis</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Bañera o ducha</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Caja fuerte</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Suelo de madera o parquet</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Toallas</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Ropa de cama</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Enchufe cerca de la cama</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Escritorio</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> TV</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Nevera</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Teléfono</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Utensilios de planchado</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Plancha para ropa</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Radio</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Secador de pelo</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Camas extralargas (más de 2 metros)</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Servicio de despertador / alarma</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Canales por cable</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Servicio de despertador</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Reloj despertador</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Armario</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Acceso a pisos superiores en ascensor</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Acceso a pisos superiores solo mediante escaleras</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Papel higiénico</div>
-									</div>
-								</div>
-							</td>
-							
-							<!-- Variación 1 -->
-							<td class="p-4 border-r border-gray-200 align-top">
-								<div class="flex items-center gap-1">
-									<span>👤</span>
-									<span>👤</span>
-								</div>
-							</td>
-							<td class="p-4 border-r border-gray-200 align-top">
-								<div class="font-bold text-lg text-gray-900">COP 487.080</div>
-								<div class="text-xs text-gray-600 mt-1">+ COP 92.560 de impuestos y cargos</div>
-							</td>
-							<td class="p-4 border-r border-gray-200 align-top">
-								<div class="space-y-2 text-sm">
-									<div class="flex items-start gap-2">
-										<span class="text-green-600">🍽️</span>
-										<div>
-											<span class="font-semibold text-green-600">Desayuno</span>
-											<span class="text-gray-600"> incluido (Muy bueno)</span>
-										</div>
-									</div>
-									<div class="flex items-start gap-2">
-										<span class="checkmark"></span>
-										<div>
-											<span class="font-semibold text-green-600">Cancelación gratis</span>
-											<span class="text-gray-600"> antes del 28 de octubre de 2025</span>
-										</div>
-									</div>
-									<div class="text-gray-600">
-										• Pagas al alojamiento antes de llegar
-									</div>
-									<div class="flex items-start gap-2 text-blue-600">
-										<span>🏷️</span>
-										<span><strong>Genius</strong> Puede haber descuento</span>
-									</div>
-								</div>
-							</td>
-							<td class="p-4 align-top">
-								<div class="space-y-3">
-									<select class="border border-gray-300 rounded px-3 py-2 w-20">
-										<option>0</option>
-										<option>1</option>
-										<option>2</option>
-										<option>3</option>
-									</select>
-									<button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded">
-										Reservaré
-									</button>
-									<div class="text-xs text-gray-600">
-										• Todavía no se te cobrará nada
-									</div>
-								</div>
-							</td>
-						</tr>
-						
-						<!-- Habitación 1 - Segunda variación -->
-						<tr class="border-b border-gray-200">
-							<td class="p-4 border-r border-gray-200 align-top">
-								<div class="flex items-center gap-1">
-									<span>👤</span>
-									<span>👤</span>
-								</div>
-							</td>
-							<td class="p-4 border-r border-gray-200 align-top">
-								<div class="font-bold text-lg text-gray-900">COP 608.860</div>
-								<div class="text-xs text-gray-600 mt-1">+ COP 115.680 de impuestos y cargos</div>
-							</td>
-							<td class="p-4 border-r border-gray-200 align-top">
-								<div class="space-y-2 text-sm">
-									<div class="flex items-start gap-2">
-										<span class="text-green-600">🍽️</span>
-										<div>
-											<span class="font-semibold text-green-600">Desayuno</span>
-											<span class="text-gray-600"> incluido (Muy bueno)</span>
-										</div>
-									</div>
-									<div class="flex items-start gap-2">
-										<span class="checkmark"></span>
-										<div>
-											<span class="font-semibold text-green-600">Cancelación gratis</span>
-											<span class="text-gray-600"> antes de las 16:00 del 3 de noviembre de 2025</span>
-										</div>
-									</div>
-									<div class="flex items-start gap-2">
-										<span class="checkmark"></span>
-										<div>
-											<span class="font-semibold text-green-600">Sin pago por adelantado</span>
-											<span class="text-gray-600"> - Pagarás en el alojamiento</span>
-										</div>
-									</div>
-									<div class="flex items-start gap-2 text-blue-600">
-										<span>🏷️</span>
-										<span><strong>Genius</strong> Puede haber descuento</span>
-									</div>
-								</div>
-							</td>
-							<td class="p-4 align-top">
-								<div class="space-y-3">
-									<select class="border border-gray-300 rounded px-3 py-2 w-20">
-										<option>0</option>
-										<option>1</option>
-										<option>2</option>
-										<option>3</option>
-									</select>
-								</div>
-							</td>
-						</tr>
-						
-						<!-- Habitación 1 - Tercera variación -->
-						<tr class="border-b border-gray-200">
-							<td class="p-4 border-r border-gray-200 align-top">
-								<div class="flex items-center gap-1">
-									<span>👤</span>
-									<span>👤</span>
-								</div>
-							</td>
-							<td class="p-4 border-r border-gray-200 align-top">
-								<div class="font-bold text-lg text-gray-900">COP 547.200</div>
-								<div class="text-xs text-gray-600 mt-1">+ COP 103.980 de impuestos y cargos</div>
-							</td>
-							<td class="p-4 border-r border-gray-200 align-top">
-								<div class="space-y-2 text-sm">
-									<div class="flex items-start gap-2">
-										<span class="text-green-600">🍽️</span>
-										<div>
-											<span class="font-semibold text-green-600">Desayuno</span>
-											<span class="text-gray-600"> incluido (Muy bueno)</span>
-										</div>
-									</div>
-									<div class="flex items-start gap-2">
-										<span class="checkmark"></span>
-										<div>
-											<span class="font-semibold text-green-600">Incluye un 10% de descuento en comida/bebida</span>
-										</div>
-									</div>
-									<div class="flex items-start gap-2">
-										<span class="xmark"></span>
-										<div>
-											<span class="font-semibold text-red-600">No reembolsable</span>
-										</div>
-									</div>
-									<div class="text-gray-600">
-										• Pagas al alojamiento antes de llegar
-									</div>
-									<div class="flex items-start gap-2 text-blue-600">
-										<span>🏷️</span>
-										<span><strong>Genius</strong> Puede haber descuento</span>
-									</div>
-								</div>
-							</td>
-							<td class="p-4 align-top">
-								<div class="space-y-3">
-									<select class="border border-gray-300 rounded px-3 py-2 w-20">
-										<option>0</option>
-										<option>1</option>
-										<option>2</option>
-										<option>3</option>
-									</select>
-								</div>
-							</td>
-						</tr>
-						
-						<!-- Habitación 2 - Suite Ejecutiva (una sola variación) -->
-						<tr class="border-b border-gray-200">
-							<!-- Columna de tipo de habitación sin rowspan -->
-							<td class="p-4 border-r border-gray-200 align-top bg-gray-50">
-								<div class="space-y-3">
-									<a href="#" class="text-blue-600 hover:underline font-semibold text-base">
-										Suite Ejecutiva - Cama king
-									</a>
-									
-									<div class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-										Recomendado para 2 adultos
-									</div>
-									
-									<div class="flex items-center gap-1 text-red-600 text-sm font-semibold">
-										<span class="text-lg">🔴</span>
-										<span>Nos quedan 3</span>
-									</div>
-									
-									<div class="text-sm text-gray-700">
-										1 cama king
-										<div class="mt-1">🛏️</div>
-									</div>
-									
-									<div class="space-y-2 text-sm text-gray-700">
-										<div class="flex items-start gap-2">
-											<span>📐</span>
-											<span>Suite</span>
-											<span>🔲</span>
-											<span>35 m²</span>
-										</div>
-										<div class="flex items-start gap-2">
-											<span>🏙️</span>
-											<span>Vista panorámica a la ciudad</span>
-										</div>
-										<div class="flex items-start gap-2">
-											<span>❄️</span>
-											<span>Aire acondicionado</span>
-										</div>
-										<div class="flex items-start gap-2">
-											<span>🚿</span>
-											<span>Baño en la habitación</span>
-										</div>
-										<div class="flex items-start gap-2">
-											<span>📺</span>
-											<span>TV de pantalla plana 55"</span>
-										</div>
-										<div class="flex items-start gap-2">
-											<span>☕</span>
-											<span>Minibar</span>
-										</div>
-										<div class="flex items-start gap-2">
-											<span>🛋️</span>
-											<span>Área de estar</span>
-										</div>
-									</div>
-									
-									<div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 pt-2 border-t border-gray-200">
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Artículos de aseo gratis</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Bañera de hidromasaje</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Caja fuerte</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Suelo de madera o parquet</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Toallas</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Ropa de cama premium</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Enchufe cerca de la cama</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Escritorio ejecutivo</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> TV</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Minibar</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Teléfono</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Utensilios de planchado</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Plancha para ropa</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Radio</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Secador de pelo</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Camas extralargas (más de 2 metros)</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Servicio de despertador / alarma</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Canales por cable</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Servicio de despertador</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Reloj despertador</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Armario</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Acceso a pisos superiores en ascensor</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Acceso a pisos superiores solo mediante escaleras</div>
-										<div class="flex items-center gap-1"><span class="checkmark"></span> Papel higiénico</div>
-									</div>
-								</div>
-							</td>
-							
-							<!-- Variación única -->
-							<td class="p-4 border-r border-gray-200 align-top">
-								<div class="flex items-center gap-1">
-									<span>👤</span>
-									<span>👤</span>
-								</div>
-							</td>
-							<td class="p-4 border-r border-gray-200 align-top">
-								<div class="font-bold text-lg text-gray-900">COP 892.400</div>
-								<div class="text-xs text-gray-600 mt-1">+ COP 169.560 de impuestos y cargos</div>
-							</td>
-							<td class="p-4 border-r border-gray-200 align-top">
-								<div class="space-y-2 text-sm">
-									<div class="flex items-start gap-2">
-										<span class="text-green-600">🍽️</span>
-										<div>
-											<span class="font-semibold text-green-600">Desayuno</span>
-											<span class="text-gray-600"> incluido (Excelente)</span>
-										</div>
-									</div>
-									<div class="flex items-start gap-2">
-										<span class="checkmark"></span>
-										<div>
-											<span class="font-semibold text-green-600">Cancelación gratis</span>
-											<span class="text-gray-600"> antes del 30 de octubre de 2025</span>
-										</div>
-									</div>
-									<div class="flex items-start gap-2">
-										<span class="checkmark"></span>
-										<div>
-											<span class="font-semibold text-green-600">Sin pago por adelantado</span>
-											<span class="text-gray-600"> - Pagarás en el alojamiento</span>
-										</div>
-									</div>
-									<div class="flex items-start gap-2">
-										<span class="checkmark"></span>
-										<div>
-											<span class="font-semibold text-green-600">Acceso gratuito al club lounge</span>
-										</div>
-									</div>
-									<div class="flex items-start gap-2 text-blue-600">
-										<span>🏷️</span>
-										<span><strong>Genius</strong> Puede haber descuento</span>
-									</div>
-								</div>
-							</td>
-							<td class="p-4 align-top">
-								<div class="space-y-3">
-									<select class="border border-gray-300 rounded px-3 py-2 w-20">
-										<option>0</option>
-										<option>1</option>
-										<option>2</option>
-										<option>3</option>
-									</select>
-									<button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded">
-										Reservaré
-									</button>
-									<div class="text-xs text-gray-600">
-										• Todavía no se te cobrará nada
-									</div>
-								</div>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</div>
+			{#if hasRoomData}
+				<div class="overflow-x-auto">
+					<table class="w-full border-collapse">
+						<!-- Encabezados -->
+						<thead>
+							<tr class="bg-blue-600 text-white">
+								<th class="text-left p-3 font-semibold text-sm border-r border-blue-500">Tipo de habitación</th>
+								<th class="text-left p-3 font-semibold text-sm border-r border-blue-500">Número de personas</th>
+								<th class="text-left p-3 font-semibold text-sm border-r border-blue-500">Precio para 2 noches</th>
+								<th class="text-left p-3 font-semibold text-sm border-r border-blue-500">Tus opciones</th>
+								<th class="text-left p-3 font-semibold text-sm">Seleccionar habitaciones</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each groupedRooms as { roomType, rooms }}
+								{#each rooms as roomData, index}
+									<tr class="border-b border-gray-200">
+									{#if index === 0}
+										{@const bedInfo = HotelDetailsService.getBedTypeInfo(roomData.room.bed_type)}
+										<!-- Columna de tipo de habitación con rowspan -->
+										<td rowspan={rooms.length} class="p-4 border-r border-gray-200 align-top bg-gray-50">
+											<div class="space-y-3">
+												<span class="text-blue-600 hover:underline font-semibold text-base cursor-pointer">
+													{roomData.room.name || roomData.room.room_name}
+												</span>
+												
+												<div class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+													Recomendado para {roomData.room.nr_adults} adultos
+												</div>
+												
+												<div class="flex items-center gap-1 text-red-600 text-sm font-semibold">
+													<span class="text-lg">🔴</span>
+													<span>Nos quedan {roomData.room.room_count}</span>
+												</div>
+												
+												<div class="text-sm text-gray-700">
+													{bedInfo.text}
+													<div class="mt-1 flex items-center gap-1">
+														{@html bedInfo.svg || bedInfo.icon}
+													</div>
+												</div>
+													
+													<div class="space-y-2 text-sm text-gray-700">
+														{#each HotelDetailsService.getRoomFacilities(roomData.room) as facility}
+															<div class="flex items-start gap-2">
+																<span>{facility.icon}</span>
+																<span>{facility.text}</span>
+															</div>
+														{/each}
+													</div>
+													
+													<div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 pt-2 border-t border-gray-200">
+														{#each HotelDetailsService.getRoomAmenities(roomData.room) as amenity}
+															<div class="flex items-center gap-1">
+																<span class="checkmark"></span> {amenity}
+															</div>
+														{/each}
+													</div>
+												</div>
+											</td>
+										{/if}
+										
+										<!-- Número de personas -->
+										<td class="p-4 border-r border-gray-200 align-top">
+											<div class="flex items-center gap-1">
+												{#each Array(roomData.room.nr_adults) as _}
+													<span>👤</span>
+												{/each}
+											</div>
+										</td>
+										
+										<!-- Precio -->
+										<td class="p-4 border-r border-gray-200 align-top">
+											<div class="font-bold text-lg text-gray-900">{roomData.price}</div>
+											<div class="text-xs text-gray-600 mt-1">+ {roomData.taxes} de impuestos y cargos</div>
+										</td>
+										
+										<!-- Opciones -->
+										<td class="p-4 border-r border-gray-200 align-top">
+											<div class="space-y-2 text-sm">
+												{#each roomData.options as option}
+													<div class="flex items-start gap-2">
+														<span class={option.color}>{option.icon}</span>
+														<div>
+															<span class="font-semibold {option.color}">{option.text}</span>
+														</div>
+													</div>
+												{/each}
+											</div>
+										</td>
+										
+										<!-- Seleccionar habitaciones -->
+										<td class="p-4 align-top">
+											<div class="space-y-3">
+												<select 
+													class="border border-gray-300 rounded px-3 py-2 w-20"
+													value={getSelectedRoomQuantity(roomData.room.room_id)}
+													on:change={createRoomChangeHandler(roomData.room)}
+												>
+													{#each Array(Math.min(roomData.room.room_count + 1, 5)) as _, i}
+														<option value={i}>{i}</option>
+													{/each}
+												</select>
+												{#if index === 0}
+													<button 
+														class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded disabled:bg-gray-400 disabled:cursor-not-allowed"
+														disabled={!isReservationValid}
+														on:click={navigateToResume}
+													>
+														{isReservationValid ? 'Reservaré' : 'Selecciona habitaciones'}
+													</button>
+													<div class="text-xs text-gray-600">
+														{reservationSummary.text}
+													</div>
+												{/if}
+											</div>
+										</td>
+									</tr>
+								{/each}
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{:else}
+				<!-- Estado cuando no hay datos de habitaciones -->
+				<div class="p-8 text-center">
+					<div class="text-gray-500 mb-4">
+						<svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+						</svg>
+					</div>
+					<h3 class="text-lg font-semibold text-gray-900 mb-2">No hay habitaciones disponibles</h3>
+					<p class="text-gray-600">No se encontraron habitaciones para las fechas seleccionadas.</p>
+				</div>
+			{/if}
 		</div>
+		
+		<!-- Resumen de selección en tiempo real -->
+		{#if selectedRooms.length > 0}
+			<div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+				<h3 class="text-lg font-semibold text-blue-900 mb-3">Resumen de tu selección</h3>
+				<div class="space-y-2">
+					{#each selectedRooms as room}
+						<div class="flex justify-between items-center text-sm">
+							<span class="text-gray-700">
+								{room.quantity}x {room.roomName}
+							</span>
+							<span class="font-semibold text-gray-900">
+								{room.total.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}
+							</span>
+						</div>
+					{/each}
+					<hr class="border-blue-200 my-2">
+					<div class="flex justify-between items-center font-semibold text-blue-900">
+						<span>Total:</span>
+						<span>{reservationTotals.total.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</span>
+					</div>
+				</div>
+			</div>
+		{/if}
 		
 	</div>
 
@@ -750,12 +710,12 @@
 			<!-- Overall Rating -->
 			<div class="flex items-center gap-3 mb-6">
 				<div class="bg-blue-800 text-white text-xl font-bold px-3 py-2 rounded-tl-lg rounded-tr-lg rounded-br-lg">
-					9,0
+					{overallRating?.score || '9,2'}
 				</div>
 				<div>
-					<span class="font-bold text-gray-900">Fantástico</span>
-					<span class="text-gray-600"> · 624 comentarios</span>
-					<a href="#" class="text-blue-600 hover:underline ml-2">Leer todos los comentarios</a>
+					<span class="font-bold text-gray-900">{overallRating?.description || 'Fantástico'}</span>
+					<span class="text-gray-600"> · {overallRating?.totalReviews || '624'} comentarios</span>
+					<span class="text-blue-600 hover:underline ml-2 cursor-pointer">Leer todos los comentarios</span>
 				</div>
 			</div>
 
@@ -764,111 +724,30 @@
 				<h3 class="font-bold text-gray-900 mb-4">Categorías:</h3>
 				
 				<div class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4">
-					<!-- Personal -->
-					<div class="flex items-center gap-3">
-						<div class="flex-1">
-							<div class="flex items-center justify-between mb-1">
-								<span class="text-sm font-medium text-gray-900 flex items-center gap-1">
-									Personal
-									<svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-										<path d="M10 3l7 7-7 7V3z" transform="rotate(-90 10 10)"/>
-									</svg>
-								</span>
-								<span class="text-sm font-bold text-gray-900">9,4</span>
-							</div>
-							<div class="w-full bg-gray-200 rounded-full h-2">
-								<div class="rating-bar bg-green-600" style="width: 94%"></div>
-							</div>
-						</div>
-					</div>
-
-					<!-- Instalaciones y servicios -->
-					<div class="flex items-center gap-3">
-						<div class="flex-1">
-							<div class="flex items-center justify-between mb-1">
-								<span class="text-sm font-medium text-gray-900">Instalaciones y servicios</span>
-								<span class="text-sm font-bold text-gray-900">9,0</span>
-							</div>
-							<div class="w-full bg-gray-200 rounded-full h-2">
-								<div class="rating-bar bg-blue-700" style="width: 90%"></div>
+					{#each categoryRatings as category}
+						<div class="flex items-center gap-3">
+							<div class="flex-1">
+								<div class="flex items-center justify-between mb-1">
+									<span class="text-sm font-medium text-gray-900 flex items-center gap-1">
+										{category.name}
+										{#if category.isHigh}
+											<svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+												<path d="M10 3l7 7-7 7V3z" transform="rotate(-90 10 10)"/>
+											</svg>
+										{:else}
+											<svg class="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+												<path d="M10 3l7 7-7 7V3z" transform="rotate(90 10 10)"/>
+											</svg>
+										{/if}
+									</span>
+									<span class="text-sm font-bold text-gray-900">{category.score}</span>
+								</div>
+								<div class="w-full bg-gray-200 rounded-full h-2">
+									<div class="rating-bar {Math.random() > 0.5 ? 'bg-green-600' : 'bg-blue-800'}" style="width: {category.percentage}%"></div>
+								</div>
 							</div>
 						</div>
-					</div>
-
-					<!-- Limpieza -->
-					<div class="flex items-center gap-3">
-						<div class="flex-1">
-							<div class="flex items-center justify-between mb-1">
-								<span class="text-sm font-medium text-gray-900">Limpieza</span>
-								<span class="text-sm font-bold text-gray-900">9,3</span>
-							</div>
-							<div class="w-full bg-gray-200 rounded-full h-2">
-								<div class="rating-bar bg-green-600" style="width: 93%"></div>
-							</div>
-						</div>
-					</div>
-
-					<!-- Confort -->
-					<div class="flex items-center gap-3">
-						<div class="flex-1">
-							<div class="flex items-center justify-between mb-1">
-								<span class="text-sm font-medium text-gray-900">Confort</span>
-								<span class="text-sm font-bold text-gray-900">9,3</span>
-							</div>
-							<div class="w-full bg-gray-200 rounded-full h-2">
-								<div class="rating-bar bg-blue-700" style="width: 93%"></div>
-							</div>
-						</div>
-					</div>
-
-					<!-- Relación calidad-precio -->
-					<div class="flex items-center gap-3">
-						<div class="flex-1">
-							<div class="flex items-center justify-between mb-1">
-								<span class="text-sm font-medium text-gray-900">Relación calidad-precio</span>
-								<span class="text-sm font-bold text-gray-900">8,7</span>
-							</div>
-							<div class="w-full bg-gray-200 rounded-full h-2">
-								<div class="rating-bar bg-blue-700" style="width: 87%"></div>
-							</div>
-						</div>
-					</div>
-
-					<!-- Ubicación -->
-					<div class="flex items-center gap-3">
-						<div class="flex-1">
-							<div class="flex items-center justify-between mb-1">
-								<span class="text-sm font-medium text-gray-900 flex items-center gap-1">
-									Ubicación
-									<svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-										<path d="M10 3l7 7-7 7V3z" transform="rotate(-90 10 10)"/>
-									</svg>
-								</span>
-								<span class="text-sm font-bold text-gray-900">9,6</span>
-							</div>
-							<div class="w-full bg-gray-200 rounded-full h-2">
-								<div class="rating-bar bg-green-600" style="width: 96%"></div>
-							</div>
-						</div>
-					</div>
-
-					<!-- WiFi gratis -->
-					<div class="flex items-center gap-3">
-						<div class="flex-1">
-							<div class="flex items-center justify-between mb-1">
-								<span class="text-sm font-medium text-gray-900 flex items-center gap-1">
-									WiFi gratis
-									<svg class="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-										<path d="M10 3l7 7-7 7V3z" transform="rotate(90 10 10)"/>
-									</svg>
-								</span>
-								<span class="text-sm font-bold text-gray-900">7,4</span>
-							</div>
-							<div class="w-full bg-gray-200 rounded-full h-2">
-								<div class="rating-bar bg-red-600" style="width: 74%"></div>
-							</div>
-						</div>
-					</div>
+					{/each}
 				</div>
 
 				<!-- Score indicators -->
@@ -877,13 +756,13 @@
 						<svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
 							<path d="M10 3l7 7-7 7V3z" transform="rotate(-90 10 10)"/>
 						</svg>
-						<span class="text-gray-700">Puntuación alta para Yopal</span>
+						<span class="text-gray-700">Puntuación alta para {$hotelDetailsStore.hotelDetails?.city_trans || 'Yopal'}</span>
 					</div>
 					<div class="flex items-center gap-2">
 						<svg class="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
 							<path d="M10 3l7 7-7 7V3z" transform="rotate(90 10 10)"/>
 						</svg>
-						<span class="text-gray-700">Puntuación baja para Yopal</span>
+						<span class="text-gray-700">Puntuación baja para {$hotelDetailsStore.hotelDetails?.city_trans || 'Yopal'}</span>
 					</div>
 				</div>
 			</div>
@@ -920,65 +799,26 @@
 				<h3 class="font-bold text-gray-900 mb-4">Lo que más gustó a quienes se alojaron aquí</h3>
 				
 				<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-					<!-- Review Card 1 -->
-					<div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-						<div class="flex items-center gap-3 mb-3">
-							<div class="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-white font-bold">
-								R
-							</div>
-							<div>
-								<div class="font-bold text-gray-900">Rendón</div>
-								<div class="flex items-center gap-1 text-xs text-gray-600">
-									<span class="text-base">🇨🇴</span>
-									<span>Colombia</span>
+					{#each userReviews as review, index}
+						<div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+							<div class="flex items-center gap-3 mb-3">
+								<div class="w-10 h-10 rounded-full {index === 0 ? 'bg-gradient-to-br from-orange-400 to-pink-500' : index === 1 ? 'bg-green-600' : 'bg-gradient-to-br from-blue-400 to-purple-500'} flex items-center justify-center text-white font-bold">
+									{review.avatar}
+								</div>
+								<div>
+									<div class="font-bold text-gray-900">{review.name}</div>
+									<div class="flex items-center gap-1 text-xs text-gray-600">
+										<span class="text-base">🇨🇴</span>
+										<span>{review.country}</span>
+									</div>
 								</div>
 							</div>
+							<p class="text-sm text-gray-700 mb-3">
+								"{review.comment}"
+							</p>
+							<span class="text-blue-600 text-sm font-medium hover:underline cursor-pointer">Más info</span>
 						</div>
-						<p class="text-sm text-gray-700 mb-3">
-							"Únicamente hicimos uso de las instalaciones básicas. Encontramos excelente el hotel y es nuestra segunda visita. Esperamos regresar pronto. Muchas gracias."
-						</p>
-						<a href="#" class="text-blue-600 text-sm font-medium hover:underline">Más info</a>
-					</div>
-
-					<!-- Review Card 2 -->
-					<div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-						<div class="flex items-center gap-3 mb-3">
-							<div class="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white font-bold">
-								P
-							</div>
-							<div>
-								<div class="font-bold text-gray-900">Pilar</div>
-								<div class="flex items-center gap-1 text-xs text-gray-600">
-									<span class="text-base">🇨🇴</span>
-									<span>Colombia</span>
-								</div>
-							</div>
-						</div>
-						<p class="text-sm text-gray-700 mb-3">
-							"todo absolutamente todo. ubicación estratégica. el desayuno más que delicioso y sus colaboradores los mejores..."
-						</p>
-						<a href="#" class="text-blue-600 text-sm font-medium hover:underline">Más info</a>
-					</div>
-
-					<!-- Review Card 3 -->
-					<div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-						<div class="flex items-center gap-3 mb-3">
-							<div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold">
-								C
-							</div>
-							<div>
-								<div class="font-bold text-gray-900">Carlos</div>
-								<div class="flex items-center gap-1 text-xs text-gray-600">
-									<span class="text-base">🇨🇴</span>
-									<span>Colombia</span>
-								</div>
-							</div>
-						</div>
-						<p class="text-sm text-gray-700 mb-3">
-							"Un excelente lugar para ir de paseo o descanso. las instalaciones, la ubicación, la amabilidad de su gente. Totalmente recomendado .una muy buena experiencia Muchas gracias por todo."
-						</p>
-						<a href="#" class="text-blue-600 text-sm font-medium hover:underline">Más info</a>
-					</div>
+					{/each}
 				</div>
 			</div>
 
@@ -998,7 +838,7 @@
 			<div class="border-b border-gray-200 p-6 flex justify-between items-start">
 				<div>
 					<h1 class="text-2xl font-bold text-gray-900 mb-2">Normas de la casa</h1>
-					<p class="text-sm text-gray-600">Holiday Inn Express Yopal by IHG acepta peticiones especiales. ¡Añádelas en el siguiente paso!</p>
+					<p class="text-sm text-gray-600">{$hotelDetailsStore.hotelDetails?.hotel_name || 'Holiday Inn Express Yopal by IHG'} acepta peticiones especiales. ¡Añádelas en el siguiente paso!</p>
 				</div>
 				<button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-medium text-sm whitespace-nowrap ml-4">
 					Ver disponibilidad
@@ -1050,7 +890,7 @@
 					</div>
 					<div class="flex-1">
 						<h3 class="font-bold text-gray-900 mb-2">Cancelación / prepago</h3>
-						<p class="text-sm text-gray-700">Las condiciones de cancelación y pago por adelantado pueden variar según el tipo de alojamiento. Consulta las <a href="#" class="text-blue-600 hover:underline">condiciones</a> que puede tener cada opción cuando la elijas.</p>
+						<p class="text-sm text-gray-700">Las condiciones de cancelación y pago por adelantado pueden variar según el tipo de alojamiento. Consulta las <span class="text-blue-600 hover:underline cursor-pointer">condiciones</span> que puede tener cada opción cuando la elijas.</p>
 					</div>
 				</div>
 
@@ -1192,11 +1032,11 @@
 				</p>
 				
 				<p>
-					Los huéspedes deberán mostrar un <a href="#" class="text-blue-600 hover:underline">documento de identidad</a> válido y una <a href="#" class="text-blue-600 hover:underline">tarjeta de crédito</a> al realizar el registro de entrada. Ten en cuenta que todas las <a href="#" class="text-blue-600 hover:underline">peticiones especiales</a> están sujetas a disponibilidad y pueden comportar suplementos.
+					Los huéspedes deberán mostrar un <span class="text-blue-600 hover:underline cursor-pointer">documento de identidad</span> válido y una <span class="text-blue-600 hover:underline cursor-pointer">tarjeta de crédito</span> al realizar el registro de entrada. Ten en cuenta que todas las <span class="text-blue-600 hover:underline cursor-pointer">peticiones especiales</span> están sujetas a disponibilidad y pueden comportar suplementos.
 				</p>
 				
 				<p>
-					Informa a Holiday Inn Express Yopal by IHG con antelación de tu hora prevista de llegada. Para ello, puedes utilizar el <a href="#" class="text-blue-600 hover:underline">apartado de peticiones especiales</a> al hacer la reserva o ponerte en <a href="#" class="text-blue-600 hover:underline">contacto directamente con el alojamiento</a>. Los datos de contacto aparecen en la <a href="#" class="text-blue-600 hover:underline">confirmación de la reserva</a>.
+					Informa a {$hotelDetailsStore.hotelDetails?.hotel_name || 'Holiday Inn Express Yopal by IHG'} con antelación de tu hora prevista de llegada. Para ello, puedes utilizar el <span class="text-blue-600 hover:underline cursor-pointer">apartado de peticiones especiales</span> al hacer la reserva o ponerte en <span class="text-blue-600 hover:underline cursor-pointer">contacto directamente con el alojamiento</span>. Los datos de contacto aparecen en la <span class="text-blue-600 hover:underline cursor-pointer">confirmación de la reserva</span>.
 				</p>
 				
 				<p class="text-gray-700">

@@ -1,6 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, createEventDispatcher } from 'svelte';
 	import DatePicker from './DatePicker.svelte';
+	import { StorageService } from '$lib/services/storageService';
+	
+	// Dispatcher para eventos
+	const dispatch = createEventDispatcher();
 	
 	// ===== PROPS =====
 	export let initialData = {
@@ -135,10 +139,8 @@
 	}
 	
 	function saveGuestDataToStorage() {
-		if (typeof window !== 'undefined') {
-			const guestData = { adults, children, rooms, pets };
-			localStorage.setItem('guestSelection', JSON.stringify(guestData));
-		}
+		const guestData = { adults, children, rooms, pets };
+		StorageService.saveGuestData(guestData, 'datePicker');
 	}
 	
 	// ===== FUNCIONES DE INICIALIZACIÓN =====
@@ -159,19 +161,14 @@
 			children = initialData.children || 0;
 			rooms = initialData.rooms || 1;
 			pets = initialData.pets || false;
-		} else if (typeof window !== 'undefined') {
-			// Si no hay datos iniciales, cargar del localStorage
-			const savedGuestData = localStorage.getItem('guestSelection');
+		} else {
+			// Si no hay datos iniciales, cargar del localStorage usando el servicio
+			const savedGuestData = StorageService.loadGuestData('datePicker');
 			if (savedGuestData) {
-				try {
-					const guestData = JSON.parse(savedGuestData);
-					adults = guestData.adults || 2;
-					children = guestData.children || 0;
-					rooms = guestData.rooms || 1;
-					pets = guestData.pets || false;
-				} catch (error) {
-					console.error('Error cargando datos de huéspedes:', error);
-				}
+				adults = savedGuestData.adults || 2;
+				children = savedGuestData.children || 0;
+				rooms = savedGuestData.rooms || 1;
+				pets = savedGuestData.pets || false;
 			}
 		}
 	}
@@ -216,7 +213,16 @@
 	
 	// ===== FUNCIONES DE ACCIÓN =====
 	function handleApplyChanges() {
-		// Por ahora no hace nada, pero está listo para futuras implementaciones
+		// Emitir evento con los datos actualizados
+		dispatch('dataChange', {
+			checkInDate,
+			checkOutDate,
+			adults,
+			children,
+			rooms,
+			pets
+		});
+		
 		console.log('Aplicando cambios:', {
 			checkInDate,
 			checkOutDate,

@@ -22,6 +22,82 @@ export interface HotelDescription {
 	languagecode: string;
 }
 
+// Interfaces para la lista de habitaciones
+export interface RoomFacility {
+	name: string;
+	icon?: string;
+}
+
+export interface RoomType {
+	room_id: number;
+	roomtype_id: number;
+	name: string;
+	room_name: string;
+	room_surface_in_m2: number;
+	room_surface_in_feet2: number;
+	room_count: number;
+	nr_adults: number;
+	nr_children: number;
+	refundable: number;
+	breakfast_included: number;
+	all_inclusive: number;
+	refundable_until: string;
+	mealplan: string;
+	paymentterms: {
+		cancellation: {
+			description: string;
+			type: string;
+			type_translation: string;
+			info?: {
+				date: string;
+				time: string;
+				timezone: string;
+				refundable: number;
+			};
+		};
+		prepayment: {
+			description: string;
+			type: string;
+			type_translation: string;
+			simple_translation: string;
+		};
+	};
+	product_price_breakdown: {
+		gross_amount: {
+			value: number;
+			currency: string;
+			amount_rounded: string;
+			amount_unrounded: string;
+		};
+		all_inclusive_amount: {
+			value: number;
+			currency: string;
+			amount_rounded: string;
+			amount_unrounded: string;
+		};
+		net_amount: {
+			value: number;
+			currency: string;
+			amount_rounded: string;
+			amount_unrounded: string;
+		};
+	};
+	facilities: RoomFacility[];
+	bed_type: string;
+	view_type: string;
+	room_amenities: string[];
+}
+
+export interface RoomListResponse {
+	hotel_id: number;
+	arrival_date: string;
+	departure_date: string;
+	currency_code: string;
+	cheapest_avail_price_eur: number;
+	total_blocks: number;
+	block: RoomType[];
+}
+
 export interface HotelDetails {
 	hotel_id: number;
 	hotel_name: string;
@@ -235,6 +311,7 @@ export interface HotelDetailsState {
 	roomAvailability: RoomAvailability | null;
 	hotelPhotos: HotelPhoto[] | null;
 	hotelDescription: HotelDescription | null;
+	roomList: RoomListResponse | null;
 	loading: boolean;
 	error: string | null;
 	searchParams: {
@@ -251,6 +328,7 @@ const initialState: HotelDetailsState = {
 	roomAvailability: null,
 	hotelPhotos: null,
 	hotelDescription: null,
+	roomList: null,
 	loading: false,
 	error: null,
 	searchParams: null
@@ -285,6 +363,10 @@ function createHotelDetailsStore() {
 		
 		setHotelDescription: (hotelDescription: HotelDescription) => {
 			update(state => ({ ...state, hotelDescription, error: null, loading: false }));
+		},
+		
+		setRoomList: (roomList: RoomListResponse) => {
+			update(state => ({ ...state, roomList, error: null, loading: false }));
 		},
 		
 		setSearchParams: (searchParams: HotelDetailsState['searchParams']) => {
