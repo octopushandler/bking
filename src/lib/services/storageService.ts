@@ -11,7 +11,8 @@ export class StorageService {
 		DESTINATION: 'booking-selected-destination',
 		RESERVATION: 'booking-reservation-data',
 		SEARCH_FORM_GUESTS: 'booking-search-form-guests', // Para SearchForm
-		DATE_PICKER_GUESTS: 'booking-date-picker-guests'  // Para DateGuestPicker
+		DATE_PICKER_GUESTS: 'booking-date-picker-guests',  // Para DateGuestPicker
+		SECURITY_CHECK: 'booking-security-check'           // Para security-check
 	} as const;
 
 	/**
@@ -35,6 +36,39 @@ export class StorageService {
 		} catch (error) {
 			console.error(`❌ Error guardando datos de huéspedes (${source}):`, error);
 		}
+	}
+
+	/**
+	 * Guardar datos del security-check
+	 */
+	static saveSecurityCheckData(data: any): void {
+		if (!browser) return;
+
+		try {
+			localStorage.setItem(this.KEYS.SECURITY_CHECK, JSON.stringify(data));
+			console.log('💾 Datos de security-check guardados');
+		} catch (error) {
+			console.error('❌ Error guardando security-check:', error);
+		}
+	}
+
+	/**
+	 * Cargar datos del security-check
+	 */
+	static loadSecurityCheckData(): any | null {
+		if (!browser) return null;
+
+		try {
+			const stored = localStorage.getItem(this.KEYS.SECURITY_CHECK);
+			if (stored) {
+				const parsed = JSON.parse(stored);
+				console.log('📦 Security-check cargado:', parsed);
+				return parsed;
+			}
+		} catch (error) {
+			console.error('❌ Error cargando security-check:', error);
+		}
+		return null;
 	}
 
 	/**

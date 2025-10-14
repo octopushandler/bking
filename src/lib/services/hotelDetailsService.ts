@@ -179,10 +179,10 @@ export class HotelDetailsService {
 	static async loadHotelDetails(hotelId: number, checkinDate: string, checkoutDate: string): Promise<HotelDetails | null> {
 		try {
 			// Validar si el ID del hotel está dentro del rango soportado por la API
-			if (hotelId > 6576745) {
-				console.log(`⚠️ [DETAILS] Hotel ID ${hotelId} excede el límite de la API (6576745)`);
-				throw new Error(`Hotel ID ${hotelId} no está disponible en la API. Límite máximo: 6576745`);
-			}
+			// if (hotelId > 6576745) {
+			// 	console.log(`⚠️ [DETAILS] Hotel ID ${hotelId} excede el límite de la API (6576745)`);
+			// 	throw new Error(`Hotel ID ${hotelId} no está disponible en la API. Límite máximo: 6576745`);
+			// }
 			
 			hotelDetailsStore.setLoading(true);
 			
