@@ -5,6 +5,7 @@
 	import DatePicker from './DatePicker.svelte';
 	import { notificationAPI } from '$lib/stores/notifications';
 	import { StorageService } from '$lib/services/storageService';
+	import { validateDateRange, formatISODateOnly } from '$lib/utils/dateValidation';
 	
 	// ===== PROPS =====
 	export let initialData = {
@@ -164,7 +165,7 @@
 	
 	// ===== FUNCIONES DE FECHAS =====
 	function formatDate(date) {
-		return date.toISOString().split('T')[0];
+		return formatISODateOnly(date);
 	}
 	
 	function formatDateForDisplay(dateString) {
@@ -262,28 +263,19 @@
 	function validateForm() {
 		console.log('🔍 Validando formulario:', { query, checkInDate, checkOutDate, adults, children, rooms });
 		
-		const validations = [
-			{ condition: !query.trim(), message: 'Por favor selecciona un destino' },
-			{ condition: !checkInDate, message: 'Por favor selecciona la fecha de entrada' },
-			{ condition: !checkOutDate, message: 'Por favor selecciona la fecha de salida' },
-			{ condition: new Date(checkOutDate) <= new Date(checkInDate), message: 'La fecha de salida debe ser posterior a la de entrada' }
-		];
-		
-		for (const validation of validations) {
-			if (validation.condition) {
-				console.log('❌ Validación fallida:', validation.message);
-				
-				// Mostrar notificación de error de validación
-				notificationAPI.error(
-					'Formulario incompleto',
-					validation.message,
-					{ duration: 5000 }
-				);
-				
-				return false;
-			}
+		if (!query.trim()) {
+			notificationAPI.error('Formulario incompleto', 'Por favor selecciona un destino', { duration: 5000 });
+			return false;
 		}
-		
+		if (!checkInDate || !checkOutDate) {
+			notificationAPI.error('Formulario incompleto', 'Selecciona fechas de entrada y salida', { duration: 5000 });
+			return false;
+		}
+		const validation = validateDateRange(checkInDate, checkOutDate, { minNights: 1, maxNights: 30, allowPastCheckIn: false, maxAdvanceMonths: 18 });
+		if (!validation.ok) {
+			notificationAPI.error('Fechas inválidas', validation.error || 'Revisa las fechas seleccionadas', { duration: 6000 });
+			return false;
+		}
 		console.log('✅ Formulario válido');
 		return true;
 	}

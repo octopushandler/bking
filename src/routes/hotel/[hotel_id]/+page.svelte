@@ -12,6 +12,7 @@
 	import { hotelDetailsStore } from '$lib/stores/hotelDetails';
 	import { hotelReviewsStore } from '$lib/stores/hotelReviews';
 	import { reservationStore } from '$lib/stores/reservation';
+	import { validateDateRange, formatISODateOnly } from '$lib/utils/dateValidation';
 	import { HotelDetailsService } from '$lib/services/hotelDetailsService';
 	import { 
 		type HotelData, 
@@ -66,12 +67,23 @@
 		errorMessage = '';
 
 		// Obtener parámetros de la URL
-		const checkinDate = $page.url.searchParams.get('checkin_date') || '2026-01-31';
-		const checkoutDate = $page.url.searchParams.get('checkout_date') || '2026-02-01';
+		let checkinDate = $page.url.searchParams.get('checkin_date') || '2026-01-31';
+		let checkoutDate = $page.url.searchParams.get('checkout_date') || '2026-02-01';
 		const adults = parseInt($page.url.searchParams.get('adults_number')) || 2;
 		const children = parseInt($page.url.searchParams.get('children_number')) || 0;
 		const rooms = parseInt($page.url.searchParams.get('room_number')) || 1;
 		const pets = $page.url.searchParams.get('pets') === 'true';
+
+		// Validar y normalizar fechas (reglas realistas)
+		const dateValidation = validateDateRange(checkinDate, checkoutDate, { minNights: 1, maxNights: 30, allowPastCheckIn: false, maxAdvanceMonths: 18 });
+		if (!dateValidation.ok) {
+			const today = new Date();
+			const tomorrow = new Date(today);
+			tomorrow.setDate(today.getDate() + 1);
+			checkinDate = formatISODateOnly(today);
+			checkoutDate = formatISODateOnly(tomorrow);
+			console.warn('⚠️ [PAGE] Fechas inválidas en URL. Normalizando a hoy+1:', { checkinDate, checkoutDate, error: dateValidation.error });
+		}
 
 		// Actualizar searchParams
 		searchParams = {
@@ -347,7 +359,15 @@
 <Header>
 	<Navbar />
 	<Hero showText={false}>
-		<SearchForm/>
+		<SearchForm initialData={{
+			destination: { name: getCityTrans(hotelData) },
+			checkInDate: searchParams.checkInDate,
+			checkOutDate: searchParams.checkOutDate,
+			adults: searchParams.adults,
+			children: searchParams.children,
+			rooms: searchParams.rooms,
+			pets: searchParams.pets
+		}} />
 	</Hero>
 </Header>
 

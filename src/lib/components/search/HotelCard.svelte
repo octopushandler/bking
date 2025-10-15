@@ -4,6 +4,7 @@
 	import { HotelDetailsService } from '$lib/services/hotelDetailsService';
 	import { hotelDetailsStore } from '$lib/stores/hotelDetails';
 	import { reservationStore } from '$lib/stores/reservation';
+	import { validateDateRange, diffNights } from '$lib/utils/dateValidation';
 	
 	// Props
 	export let hotel: Hotel;
@@ -100,13 +101,13 @@
 		const children = searchParams?.children_number || 0;
 		const rooms = searchParams?.room_number || 1;
 		
-		// Calcular noches basado en fechas si están disponibles
+		// Calcular noches con util robusta si hay fechas válidas
 		let nights = 1;
 		if (searchParams?.checkin_date && searchParams?.checkout_date) {
-			const checkIn = new Date(searchParams.checkin_date);
-			const checkOut = new Date(searchParams.checkout_date);
-			const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
-			nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+			const validation = validateDateRange(searchParams.checkin_date, searchParams.checkout_date, { minNights: 1, maxNights: 30, allowPastCheckIn: true, maxAdvanceMonths: 24 });
+			if (validation.ok && validation.normalizedCheckIn && validation.normalizedCheckOut) {
+				nights = diffNights(validation.normalizedCheckIn, validation.normalizedCheckOut);
+			}
 		}
 		
 		let config = `${nights} noche${nights > 1 ? 's' : ''}, ${adults} adulto${adults > 1 ? 's' : ''}`;
@@ -140,8 +141,17 @@
 		
 		console.log('🔍 [HOTEL CARD] Iniciando navegación para hotel ID:', hotel.id);
 		
-		const checkinDate = searchParams?.checkin_date || '2026-01-31';
-		const checkoutDate = searchParams?.checkout_date || '2026-02-01';
+		let checkinDate = searchParams?.checkin_date || '2026-01-31';
+		let checkoutDate = searchParams?.checkout_date || '2026-02-01';
+		// Validar fechas antes de navegar; si no son válidas, ajustar a 1 noche desde hoy
+		const v = validateDateRange(checkinDate, checkoutDate, { minNights: 1, maxNights: 30, allowPastCheckIn: false, maxAdvanceMonths: 18 });
+		if (!v.ok || !v.normalizedCheckIn || !v.normalizedCheckOut) {
+			const today = new Date();
+			const tomorrow = new Date(today);
+			tomorrow.setDate(today.getDate() + 1);
+			checkinDate = today.toISOString().split('T')[0];
+			checkoutDate = tomorrow.toISOString().split('T')[0];
+		}
 		const adults = parseInt(searchParams?.adults_number) || 2;
 		const children = parseInt(searchParams?.children_number) || 0;
 		
