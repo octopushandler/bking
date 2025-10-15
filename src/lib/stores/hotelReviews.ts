@@ -198,12 +198,8 @@ function createHotelReviewsStore() {
 		
 		// Obtener reviews para un hotel específico
 		getReviewsForHotel: (hotelId: number): HotelReviewsData | null => {
-			let result: HotelReviewsData | null = null;
-			update(state => {
-				result = state.reviews.get(hotelId) || null;
-				return state;
-			});
-			return result;
+			const state = get();
+			return state.reviews.get(hotelId) || null;
 		},
 		
 		// Generar y guardar reviews para un hotel
@@ -225,35 +221,23 @@ function createHotelReviewsStore() {
 		
 		// Obtener calificación general
 		getOverallRating: (hotelId: number): OverallRating | null => {
-			let result: OverallRating | null = null;
-			update(state => {
-				const reviews = state.reviews.get(hotelId);
-				result = reviews?.overallRating || null;
-				return state;
-			});
-			return result;
+			const state = get();
+			const reviews = state.reviews.get(hotelId);
+			return reviews?.overallRating || null;
 		},
 		
 		// Obtener calificación de una categoría específica
 		getCategoryRating: (hotelId: number, categoryName: string): CategoryRating | null => {
-			let result: CategoryRating | null = null;
-			update(state => {
-				const reviews = state.reviews.get(hotelId);
-				result = reviews?.categoryRatings.find(cat => cat.name === categoryName) || null;
-				return state;
-			});
-			return result;
+			const state = get();
+			const reviews = state.reviews.get(hotelId);
+			return reviews?.categoryRatings.find(cat => cat.name === categoryName) || null;
 		},
 		
 		// Obtener comentarios de usuarios
 		getUserReviews: (hotelId: number): HotelReview[] => {
-			let result: HotelReview[] = [];
-			update(state => {
-				const reviews = state.reviews.get(hotelId);
-				result = reviews?.userReviews || [];
-				return state;
-			});
-			return result;
+			const state = get();
+			const reviews = state.reviews.get(hotelId);
+			return reviews?.userReviews || [];
 		},
 		
 		// Limpiar todos los reviews

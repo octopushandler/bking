@@ -14,8 +14,8 @@
 		{ src: '/assets/hotel/static8.jpg', alt: 'Baño moderno' }
 	];
 	
-	// Función mejorada para obtener imagen con fallback (ahora reactiva)
-	$: img = (i: number) => {
+	// Función mejorada para obtener imagen con fallback (sin reactividad)
+	function img(i: number): string {
 		const imageSrc = displayImages[i]?.src;
 		// Si la imagen es válida y no es placeholder, la devolvemos
 		if (imageSrc && imageSrc !== '---' && imageSrc !== '') {
@@ -23,10 +23,15 @@
 		}
 		// Fallback a imagen estática
 		return `/assets/hotel/static${(i % 8) + 1}.jpg`;
-	};
+	}
 	
-	$: alt = (i: number) => displayImages[i]?.alt ?? `Foto ${i + 1}`;
-	$: extra = Math.max(0, displayImages.length - 8); // fotos adicionales
+	function alt(i: number): string {
+		return displayImages[i]?.alt ?? `Foto ${i + 1}`;
+	}
+	
+	function extra(): number {
+		return Math.max(0, displayImages.length - 8); // fotos adicionales
+	}
 	
 	// Estado para manejar errores de carga de imágenes
 	let imageErrors = new Set<number>();
@@ -48,14 +53,14 @@
 		console.log(`📊 Imágenes cargadas:`, Array.from(loadedImages));
 	}
 	
-	$: getImageSrc = (index: number): string => {
+	function getImageSrc(index: number): string {
 		if (imageErrors.has(index)) {
 			return `/assets/hotel/static${(index % 8) + 1}.jpg`;
 		}
 		const baseSrc = img(index);
 		// Agregar timestamp para forzar re-render cuando cambien las imágenes
 		return `${baseSrc}?t=${imageKey}`;
-	};
+	}
 	
 	function isImageLoaded(index: number): boolean {
 		const loaded = loadedImages.has(index);
@@ -67,14 +72,22 @@
 	let previousImagesLength = 0;
 	let imageKey = 0; // Key para forzar re-render de imágenes
 	
-	$: if (images && images.length !== previousImagesLength) {
-		console.log(`🔄 Reseteando estados - Nuevas imágenes: ${images.length}, Anteriores: ${previousImagesLength}`);
-		// Solo limpiar estados cuando realmente cambien las imágenes
-		imageErrors = new Set();
-		loadedImages = new Set();
-		previousImagesLength = images.length;
-		imageKey++; // Incrementar key para forzar re-render
-		console.log(`🧹 Estados limpiados, nueva key: ${imageKey}`);
+	// Función para resetear estados cuando cambien las imágenes
+	function resetImageStates() {
+		if (images && images.length !== previousImagesLength) {
+			console.log(`🔄 Reseteando estados - Nuevas imágenes: ${images.length}, Anteriores: ${previousImagesLength}`);
+			// Solo limpiar estados cuando realmente cambien las imágenes
+			imageErrors = new Set();
+			loadedImages = new Set();
+			previousImagesLength = images.length;
+			imageKey++; // Incrementar key para forzar re-render
+			console.log(`🧹 Estados limpiados, nueva key: ${imageKey}`);
+		}
+	}
+	
+	// Llamar resetImageStates cuando cambien las imágenes
+	$: if (images) {
+		resetImageStates();
 	}
 </script>
   
@@ -123,8 +136,8 @@
 			on:load={() => handleImageLoad(i)}
 			loading="lazy"
 		  />
-		  {#if idx === 4 && extra > 0}
-			<span class="badge">+{extra} fotos</span>
+		  {#if idx === 4 && extra() > 0}
+			<span class="badge">+{extra()} fotos</span>
 		  {/if}
 		</figure>
 	  {/each}

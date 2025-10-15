@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { Hotel } from '$lib/config/api';
 	import { goto } from '$app/navigation';
+	import { HotelDetailsService } from '$lib/services/hotelDetailsService';
+	import { hotelDetailsStore } from '$lib/stores/hotelDetails';
+	import { reservationStore } from '$lib/stores/reservation';
 	
 	// Props
 	export let hotel: Hotel;
@@ -126,7 +129,7 @@
 	// Variable para controlar si ya se está navegando
 	let isNavigating = false;
 	
-	function handleViewAvailability() {
+	async function handleViewAvailability() {
 		// Evitar múltiples navegaciones simultáneas
 		if (isNavigating) {
 			console.log('⏳ Ya se está navegando, ignorando clic');
@@ -135,21 +138,39 @@
 		
 		isNavigating = true;
 		
+		console.log('🔍 [HOTEL CARD] Iniciando navegación para hotel ID:', hotel.id);
+		
+		const checkinDate = searchParams?.checkin_date || '2026-01-31';
+		const checkoutDate = searchParams?.checkout_date || '2026-02-01';
+		const adults = parseInt(searchParams?.adults_number) || 2;
+		const children = parseInt(searchParams?.children_number) || 0;
+		
+		// Navegar inmediatamente sin pre-cargar datos para evitar bloqueos
 		const url = `/hotel/${hotel.id}?${new URLSearchParams({
-			checkin_date: searchParams?.checkin_date || '',
-			checkout_date: searchParams?.checkout_date || '',
-			adults_number: searchParams?.adults_number || '2',
-			children_number: searchParams?.children_number || '0',
-			room_number: searchParams?.room_number || '1'
+			checkin_date: checkinDate,
+			checkout_date: checkoutDate,
+			adults_number: adults.toString(),
+			children_number: children.toString(),
+			room_number: '1'
 		}).toString()}`;
 		
-		console.log('🔗 Navegando a:', url);
-		goto(url).finally(() => {
+		console.log('🔗 [HOTEL CARD] Navegando inmediatamente a:', url);
+		
+		try {
+			await goto(url);
+			console.log('✅ [HOTEL CARD] Navegación exitosa');
+		} catch (navError) {
+			console.error('💥 [HOTEL CARD] Error en navegación:', navError);
+			// Último recurso: usar window.location
+			window.location.href = url;
+		} finally {
 			// Resetear el flag después de un pequeño delay
 			setTimeout(() => {
 				isNavigating = false;
+				console.log('🔄 [HOTEL CARD] Flag isNavigating reseteado');
 			}, 1000);
-		});
+		}
+		
 	}
 </script>
 

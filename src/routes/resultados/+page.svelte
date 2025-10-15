@@ -14,6 +14,7 @@
 	import FiltersPanel from '$lib/components/search/FiltersPanel.svelte';
 	import LoadingSpinner from '$lib/components/common/LoadingSpinner.svelte';
 	import HotelCardSkeleton from '$lib/components/common/HotelCardSkeleton.svelte';
+	import { validateDateRange } from '$lib/utils/dateValidation';
 	
 	
 	// Estado reactivo
@@ -85,18 +86,14 @@
 				throw new Error('Parámetros de búsqueda incompletos');
 			}
 			
-			// Validar fechas
-			const checkinDate = new Date(params.checkin_date);
-			const checkoutDate = new Date(params.checkout_date);
-			const today = new Date();
-			today.setHours(0, 0, 0, 0);
-			
-			if (checkinDate < today) {
-				throw new Error('La fecha de check-in debe ser futura');
-			}
-			
-			if (checkoutDate <= checkinDate) {
-				throw new Error('La fecha de check-out debe ser posterior al check-in');
+			// Validar fechas (reglas realistas)
+			const validation = validateDateRange(
+				params.checkin_date,
+				params.checkout_date,
+				{ minNights: 1, maxNights: 30, allowPastCheckIn: false, maxAdvanceMonths: 18 }
+			);
+			if (!validation.ok) {
+				throw new Error(validation.error || 'Fechas inválidas');
 			}
 			
 			// Construir URL de búsqueda usando la función helper

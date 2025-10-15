@@ -453,8 +453,8 @@ export class HotelDetailsService {
 		try {
 			console.log(`🏨 Iniciando carga de datos para hotel ID: ${hotelId}`);
 			
-			// Establecer parámetros de búsqueda
-			hotelDetailsStore.setSearchParams({ hotelId, checkinDate, checkoutDate, adults, children });
+			// NO establecer parámetros de búsqueda en el store para evitar bucles de reactividad
+			// hotelDetailsStore.setSearchParams({ hotelId, checkinDate, checkoutDate, adults, children });
 			
 			let hotelDetails: HotelDetails | null = null;
 		try {
@@ -491,8 +491,8 @@ export class HotelDetailsService {
 			console.error('Error loading hotel data (after silent retries):', error);
 			const errorMessage = handleApiError(error as any, 'carga de datos del hotel');
 			
-			// Limpiar el store en caso de error
-			hotelDetailsStore.clearData();
+			// NO limpiar el store para evitar bucles de reactividad
+			// hotelDetailsStore.clearData();
 			
 			// Mostrar notificación más suave ya que cada método individual ya reintentó silenciosamente
 			notificationAPI.warning(

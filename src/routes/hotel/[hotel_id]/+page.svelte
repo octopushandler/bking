@@ -13,50 +13,59 @@
 	import { hotelReviewsStore } from '$lib/stores/hotelReviews';
 	import { reservationStore } from '$lib/stores/reservation';
 	import { HotelDetailsService } from '$lib/services/hotelDetailsService';
+	import { 
+		type HotelData, 
+		type SearchParams,
+		getHotelName,
+		getHotelAddress,
+		getStarRating,
+		getDistanceToCenter,
+		getHotelDescription,
+		getHotelFacilities,
+		getTopBenefits,
+		getGroupedRooms,
+		hasRoomData,
+		getHotelPhotos,
+		getCountryTrans,
+		getDistrict,
+		getCityTrans,
+		getAccommodationTypeName,
+		getHotelNameForTitle,
+		cleanOldCache
+	} from '$lib/utils/hotelDataHelpers';
 
+	// Estado simple sin reactividad compleja
+	let hotelData: HotelData = {
+		hotelDetails: null,
+		hotelPhotos: null,
+		hotelDescription: null,
+		roomList: null
+	};
+	
+	let searchParams: SearchParams = {
+		checkInDate: '2026-01-31',
+		checkOutDate: '2026-02-01',
+		adults: 2,
+		children: 0,
+		rooms: 1,
+		pets: false
+	};
+	
+	let isLoading = false;
+	let hasError = false;
+	let errorMessage = '';
+	
 	// Estado para controlar el colapso de las opciones de habitación
 	let showRoomOptions = true;
-
-	// Fotos dinámicas desde la API
-	$: fotos = $hotelDetailsStore.hotelPhotos?.map(photo => ({
-		src: photo.url_max,
-		alt: photo.tags?.[0]?.tag || 'Hotel'
-	})) || [
-		// Fotos placeholder cuando no hay datos de la API
-		{ src: '---', alt: '---' },
-		{ src: '---', alt: '---' },
-		{ src: '---', alt: '---' },
-		{ src: '---', alt: '---' },
-		{ src: '---', alt: '---' },
-		{ src: '---', alt: '---' },
-		{ src: '---', alt: '---' },
-		{ src: '---', alt: '---' }
-	];
-
-	// Variable para controlar si ya se cargaron los datos para este hotel
-	let lastLoadedHotelId = 0;
-	let isInitialLoad = true;
-
-	// Cargar datos del hotel al montar el componente o cuando cambie el hotel_id
-	$: if ($page.params.hotel_id) {
-		const hotelId = parseInt($page.params.hotel_id);
-		if (hotelId && hotelId !== lastLoadedHotelId) {
-			loadHotelData(hotelId);
-		}
-	}
 
 	async function loadHotelData(hotelId: number) {
 		console.log(`🚀 [PAGE] Iniciando carga para hotel ID: ${hotelId}`);
 		
-		// Evitar múltiples cargas simultáneas
-		if (lastLoadedHotelId === hotelId && !isInitialLoad) {
-			console.log('⏳ Datos ya cargados para este hotel, omitiendo carga');
-			return;
-		}
+		isLoading = true;
+		hasError = false;
+		errorMessage = '';
 
-		lastLoadedHotelId = hotelId;
-		isInitialLoad = false;
-
+		// Obtener parámetros de la URL
 		const checkinDate = $page.url.searchParams.get('checkin_date') || '2026-01-31';
 		const checkoutDate = $page.url.searchParams.get('checkout_date') || '2026-02-01';
 		const adults = parseInt($page.url.searchParams.get('adults_number')) || 2;
@@ -64,24 +73,53 @@
 		const rooms = parseInt($page.url.searchParams.get('room_number')) || 1;
 		const pets = $page.url.searchParams.get('pets') === 'true';
 
-		console.log(`📋 [PAGE] Parámetros para hotel ${hotelId}:`, { checkinDate, checkoutDate, adults, children, rooms, pets });
+		// Actualizar searchParams
+		searchParams = {
+			checkInDate: checkinDate,
+			checkOutDate: checkoutDate,
+			adults,
+			children,
+			rooms,
+			pets
+		};
+
+		console.log(`📋 [PAGE] Parámetros para hotel ${hotelId}:`, searchParams);
 
 		try {
-			console.log(`🧹 [PAGE] Limpiando store para hotel ${hotelId}`);
-			// Limpiar el store solo cuando sea necesario
-			hotelDetailsStore.clearData();
+			// Verificar si hay datos pre-cargados
+			const urlParams = new URLSearchParams($page.url.search);
+			const isPreloaded = urlParams.get('preloaded') === 'true';
+			const cacheKey = urlParams.get('cacheKey');
+
+			if (isPreloaded && cacheKey) {
+				console.log(`💾 [PAGE] Usando datos pre-cargados para hotel ${hotelId}`);
+				
+				const cachedData = localStorage.getItem(cacheKey);
+				if (cachedData) {
+					const parsed = JSON.parse(cachedData);
+					hotelData = parsed.data;
+					searchParams = parsed.searchParams;
+					
+					// Limpiar cache después de usar
+					localStorage.removeItem(cacheKey);
+					console.log(`✅ [PAGE] Datos pre-cargados cargados para hotel ${hotelId}`);
+				} else {
+					throw new Error('Cache no encontrado');
+				}
+			} else {
+				console.log(`📞 [PAGE] Cargando datos desde API para hotel ${hotelId}`);
+				
+				// Limpiar el store
+				hotelDetailsStore.clearData();
+				
+				// Cargar datos desde la API
+				const apiData = await HotelDetailsService.loadHotelData(hotelId, checkinDate, checkoutDate, adults, children);
+				hotelData = apiData;
+				
+				console.log(`✅ [PAGE] Datos cargados desde API para hotel ${hotelId}`);
+			}
 			
-			console.log(`📞 [PAGE] Llamando a HotelDetailsService.loadHotelData para hotel ${hotelId}`);
-			const hotelData = await HotelDetailsService.loadHotelData(hotelId, checkinDate, checkoutDate, adults, children);
-			
-			console.log(`📊 [PAGE] Datos recibidos para hotel ${hotelId}:`, {
-				hasDetails: !!hotelData.hotelDetails,
-				hasPhotos: !!hotelData.hotelPhotos,
-				hasDescription: !!hotelData.hotelDescription,
-				hasRoomList: !!hotelData.roomList
-			});
-			
-			// Inicializar el store de reserva con todos los datos del hotel
+			// Inicializar el store de reserva
 			if (hotelData.hotelDetails) {
 				console.log(`💾 [PAGE] Inicializando reserva para hotel ${hotelId}`);
 				reservationStore.initializeReservation(
@@ -89,82 +127,90 @@
 					hotelData.hotelPhotos,
 					hotelData.hotelDescription,
 					hotelData.roomList,
-					{
-						checkInDate: checkinDate,
-						checkOutDate: checkoutDate,
-						adults,
-						children,
-						rooms,
-						pets
-					}
+					searchParams
 				);
+				// Actualizar datos de reserva localmente
+				updateReservationData();
 				console.log(`✅ [PAGE] Reserva inicializada para hotel ${hotelId}`);
 			} else {
 				console.log(`❌ [PAGE] No hay detalles del hotel ${hotelId}, no se puede inicializar reserva`);
 			}
+			
 		} catch (error) {
 			console.error(`💥 [PAGE] Error cargando datos del hotel ${hotelId}:`, error);
+			hasError = true;
+			errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+		} finally {
+			isLoading = false;
 		}
 	}
 
-	// Variables reactivas para el header
-	$: hotelName = $hotelDetailsStore.hotelDetails?.hotel_name || '---';
-	
-	$: hotelAddress = (() => {
-		const details = $hotelDetailsStore.hotelDetails;
-		if (details) {
-			return `${details.hotel_address_line} - <span class="text-blue-600 hover:underline font-semibold cursor-pointer">Excelente ubicación - Ver en el mapa</span>`;
+	// Cargar datos al montar el componente
+	onMount(async () => {
+		console.log('🚀 [PAGE] onMount iniciado');
+		
+		// Limpiar cache antiguo
+		console.log('🧹 [PAGE] Limpiando cache antiguo...');
+		cleanOldCache();
+		console.log('✅ [PAGE] Cache limpiado');
+		
+		// Cargar datos del hotel
+		const hotelId = parseInt($page.params.hotel_id);
+		console.log(`🏨 [PAGE] Hotel ID extraído: ${hotelId}`);
+		
+		if (hotelId) {
+			console.log('📞 [PAGE] Iniciando carga de datos del hotel...');
+			await loadHotelData(hotelId);
+			console.log('✅ [PAGE] Datos del hotel cargados');
+			
+			console.log('📝 [PAGE] Iniciando carga de reviews...');
+			loadReviews(hotelId);
+			console.log('✅ [PAGE] Reviews cargadas');
 		}
-		return '--- - <span class="text-blue-600 hover:underline font-semibold cursor-pointer">--- - Ver en el mapa</span>';
-	})();
+		
+		console.log('🎉 [PAGE] onMount completado');
+	});
 	
-	$: starRating = (() => {
-		const details = $hotelDetailsStore.hotelDetails;
-		// Usar class (número de estrellas) o class_is_estimated como fallback
-		return details?.class ? HotelDetailsService.generateStarRating(details.class) : '---';
-	})();
+	// Variables para reviews (sin reactividad compleja)
+	let hotelReviewsData: any = null;
+	let overallRating: any = null;
+	let categoryRatings: any[] = [];
+	let userReviews: any[] = [];
 	
-	$: distanceToCenter = (() => {
-		const details = $hotelDetailsStore.hotelDetails;
-		if (details && details.distance_to_cc) {
-			return HotelDetailsService.getDistanceToCenter(details.distance_to_cc);
-		}
-		return '---';
-	})();
-
-	// Variables reactivas adicionales para otros datos dinámicos
-	$: hotelDescription = $hotelDetailsStore.hotelDescription?.description || 'Descripción no disponible';
-	$: hotelFacilities = $hotelDetailsStore.hotelDetails?.facilities_block?.facilities || [];
-	$: topBenefits = $hotelDetailsStore.hotelDetails?.top_ufi_benefits || [];
-	$: isLoading = $hotelDetailsStore.loading;
-	$: hasError = $hotelDetailsStore.error;
-	
-	// Variables reactivas para la tabla de habitaciones
-	$: roomList = $hotelDetailsStore.roomList;
-	$: groupedRooms = HotelDetailsService.groupRoomsByType(roomList);
-	$: hasRoomData = groupedRooms.length > 0;
-	
-	// Variables reactivas para reviews
-	$: hotelId = parseInt($page.params.hotel_id);
-	$: hotelReviewsData = (() => {
+	// Función para cargar reviews
+	function loadReviews(hotelId: number) {
+		console.log(`🔄 [PAGE] Cargando reviews para hotel ${hotelId}...`);
 		if (hotelId && !isNaN(hotelId)) {
 			// Generar reviews si no existen para este hotel (solo una vez)
 			if (!hotelReviewsStore.getReviewsForHotel(hotelId)) {
+				console.log(`📝 [PAGE] Generando reviews para hotel ${hotelId}...`);
 				hotelReviewsStore.generateReviewsForHotel(hotelId);
 			}
-			return hotelReviewsStore.getReviewsForHotel(hotelId);
+			hotelReviewsData = hotelReviewsStore.getReviewsForHotel(hotelId);
+			overallRating = hotelReviewsData?.overallRating || null;
+			categoryRatings = hotelReviewsData?.categoryRatings || [];
+			userReviews = hotelReviewsData?.userReviews || [];
+			console.log(`✅ [PAGE] Reviews cargadas para hotel ${hotelId}`);
 		}
-		return null;
-	})();
-	$: overallRating = hotelReviewsData?.overallRating || null;
-	$: categoryRatings = hotelReviewsData?.categoryRatings || [];
-	$: userReviews = hotelReviewsData?.userReviews || [];
+	}
 	
-	// Variables reactivas para la reserva
-	$: reservationData = $reservationStore;
-	$: selectedRooms = $reservationStore.selectedRooms;
-	$: reservationTotals = $reservationStore.totals;
-	$: isReservationValid = $reservationStore.isValid;
+	// Variables para la reserva (sin reactividad)
+	let reservationData: any = null;
+	let selectedRooms: any[] = [];
+	let reservationTotals: any = null;
+	let isReservationValid = false;
+	
+	// Función para actualizar datos de reserva
+	function updateReservationData() {
+		console.log('🔄 [PAGE] Actualizando datos de reserva...');
+		reservationData = $reservationStore;
+		selectedRooms = $reservationStore.selectedRooms;
+		reservationTotals = $reservationStore.totals;
+		isReservationValid = $reservationStore.isValid;
+		console.log('✅ [PAGE] Datos de reserva actualizados');
+		// Actualizar también el resumen
+		updateReservationSummary();
+	}
 	
 	// Funciones para manejar la selección de habitaciones
 	function handleRoomQuantityChange(roomData: any, quantity: number) {
@@ -176,6 +222,8 @@
 		}
 		// Forzar validación después del cambio
 		reservationStore.validateReservation();
+		// Actualizar datos localmente
+		updateReservationData();
 	}
 	
 	function getSelectedRoomQuantity(roomId: number): number {
@@ -210,6 +258,8 @@
 		
 		// Actualizar parámetros de búsqueda en el store de reserva
 		reservationStore.updateSearchParams(newData);
+		// Actualizar datos localmente
+		updateReservationData();
 		
 		// Solo recargar la lista de habitaciones, no todos los datos del hotel
 		const hotelId = parseInt($page.params.hotel_id);
@@ -233,6 +283,8 @@
 							roomList,
 							newData
 						);
+						// Actualizar datos localmente
+						updateReservationData();
 					}
 				}
 			}).catch(error => {
@@ -258,29 +310,37 @@
 		};
 	}
 	
-	// Variable reactiva para el resumen de la reserva
-	$: reservationSummary = (() => {
+	// Variable para el resumen de la reserva (sin reactividad)
+	let reservationSummary: any = {
+		hasSelection: false,
+		text: '• Todavía no se te cobrará nada'
+	};
+	
+	// Función para actualizar el resumen de la reserva
+	function updateReservationSummary() {
+		console.log('🔄 [PAGE] Actualizando resumen de reserva...');
 		if (selectedRooms.length === 0) {
-			return {
+			reservationSummary = {
 				hasSelection: false,
 				text: '• Todavía no se te cobrará nada'
 			};
+		} else {
+			const totalRooms = selectedRooms.reduce((sum, room) => sum + room.quantity, 0);
+			const totalNights = selectedRooms[0]?.totalNights || 0;
+			const totalAmount = reservationTotals?.total || 0;
+			
+			reservationSummary = {
+				hasSelection: true,
+				text: `• ${totalRooms} habitación${totalRooms > 1 ? 'es' : ''} • ${totalNights} noche${totalNights > 1 ? 's' : ''} • ${totalAmount.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}`
+			};
 		}
-		
-		const totalRooms = selectedRooms.reduce((sum, room) => sum + room.quantity, 0);
-		const totalNights = selectedRooms[0]?.totalNights || 0;
-		const totalAmount = reservationTotals.total;
-		
-		return {
-			hasSelection: true,
-			text: `• ${totalRooms} habitación${totalRooms > 1 ? 'es' : ''} • ${totalNights} noche${totalNights > 1 ? 's' : ''} • ${totalAmount.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}`
-		};
-	})();
+		console.log('✅ [PAGE] Resumen de reserva actualizado');
+	}
 </script>
 
 <svelte:head>
-	<title>{hotelName} - Booking</title>
-	<meta name="description" content="Detalles completos del hotel {hotelName}" />
+	<title>{getHotelName(hotelData)} - Booking</title>
+	<meta name="description" content="Detalles completos del hotel {getHotelName(hotelData)}" />
 </svelte:head>
 
 <!-- Header completo con SearchForm -->
@@ -332,13 +392,13 @@
 			<span>></span>
 			<span class="text-blue-600 hover:underline cursor-pointer">Hoteles</span>
 			<span>></span>
-			<span class="text-blue-600 hover:underline cursor-pointer">{$hotelDetailsStore.hotelDetails?.country_trans || 'Colombia'}</span>
+			<span class="text-blue-600 hover:underline cursor-pointer">{getCountryTrans(hotelData)}</span>
 			<span>></span>
-			<span class="text-blue-600 hover:underline cursor-pointer">{$hotelDetailsStore.hotelDetails?.district || 'Cundinamarca'}</span>
+			<span class="text-blue-600 hover:underline cursor-pointer">{getDistrict(hotelData)}</span>
 			<span>></span>
-			<span class="text-blue-600 hover:underline cursor-pointer">{$hotelDetailsStore.hotelDetails?.city_trans || 'Bogotá'}</span>
+			<span class="text-blue-600 hover:underline cursor-pointer">{getCityTrans(hotelData)}</span>
 			<span>></span>
-			<span>Ofertas en el {$hotelDetailsStore.hotelDetails?.hotel_name || 'Hotel Plaza Real'} ({$hotelDetailsStore.hotelDetails?.accommodation_type_name || 'Hotel'}) ({$hotelDetailsStore.hotelDetails?.country_trans || 'Colombia'})</span>
+			<span>Ofertas en el {getHotelNameForTitle(hotelData)} ({getAccommodationTypeName(hotelData)}) ({getCountryTrans(hotelData)})</span>
 		</div>
 
 		<!-- Tabs -->
@@ -369,10 +429,10 @@
 		<div class="flex flex-row justify-between items-start">
 			<div class="flex flex-col gap-2">
 				<img src="/assets/hotel/stars.png" alt="Stars" class="w-[180px] object-contain">
-				<p class="text-3xl font-bold">{hotelName}</p>
+				<p class="text-3xl font-bold">{getHotelName(hotelData)}</p>
 				<div class="flex flex-row gap-2 items-end text-sm">
 					<img src="/assets/hotel/location.png" alt="Map" class="w-[15px] object-contain">
-					<p>{@html hotelAddress}</p>
+					<p>{@html getHotelAddress(hotelData)}</p>
 				</div>
 			</div>
 			<div class="flex flex-col gap-5 items-end justify-end">
@@ -398,16 +458,16 @@
 		<!-- Gallery -->
 		<div class="mt-8">
 			<!-- Galería para desktop -->
-			<ImageGalleryDesktop images={fotos} />
+			<ImageGalleryDesktop images={getHotelPhotos(hotelData)} />
 			
 			<!-- Galería para mobile -->
-			<ImageGalleryMobile images={fotos} />
+			<ImageGalleryMobile images={getHotelPhotos(hotelData)} />
 		</div>
 
 		<!-- Description & Main specs -->
 		<div class="grid grid-cols-4 w-full mt-8">
 			<div class="col-span-3 flex flex-col gap-4">
-				<div class="text-sm text-gray-900 whitespace-pre-line">{hotelDescription}</div>
+				<div class="text-sm text-gray-900 whitespace-pre-line">{getHotelDescription(hotelData)}</div>
 				<span class="text-xs text-gray-600">Las distancias en la descripción del alojamiento se calculan con OpenStreetMap©</span>
 
 				<div>
@@ -505,12 +565,12 @@
 		<div class="mb-6">
 			<DateGuestPicker 
 				initialData={{
-					checkInDate: reservationData.searchParams.checkInDate,
-					checkOutDate: reservationData.searchParams.checkOutDate,
-					adults: reservationData.searchParams.adults,
-					children: reservationData.searchParams.children,
-					rooms: reservationData.searchParams.rooms,
-					pets: reservationData.searchParams.pets
+					checkInDate: reservationData?.searchParams?.checkInDate || searchParams.checkInDate,
+					checkOutDate: reservationData?.searchParams?.checkOutDate || searchParams.checkOutDate,
+					adults: reservationData?.searchParams?.adults || searchParams.adults,
+					children: reservationData?.searchParams?.children || searchParams.children,
+					rooms: reservationData?.searchParams?.rooms || searchParams.rooms,
+					pets: reservationData?.searchParams?.pets || searchParams.pets
 				}}
 				on:dataChange={(e) => handleDateGuestChange(e.detail)}
 			/>
@@ -533,7 +593,7 @@
 
 		<!-- Tabla de habitaciones -->
 		<div class="bg-white rounded-lg shadow-sm">
-			{#if hasRoomData}
+			{#if hasRoomData(hotelData)}
 				<div class="overflow-x-auto">
 					<table class="w-full border-collapse">
 						<!-- Encabezados -->
@@ -547,7 +607,7 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each groupedRooms as { roomType, rooms }}
+							{#each getGroupedRooms(hotelData) as { roomType, rooms }}
 								{#each rooms as roomData, index}
 									<tr class="border-b border-gray-200">
 									{#if index === 0}
@@ -756,13 +816,13 @@
 						<svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
 							<path d="M10 3l7 7-7 7V3z" transform="rotate(-90 10 10)"/>
 						</svg>
-						<span class="text-gray-700">Puntuación alta para {$hotelDetailsStore.hotelDetails?.city_trans || 'Yopal'}</span>
+						<span class="text-gray-700">Puntuación alta para {getCityTrans(hotelData)}</span>
 					</div>
 					<div class="flex items-center gap-2">
 						<svg class="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
 							<path d="M10 3l7 7-7 7V3z" transform="rotate(90 10 10)"/>
 						</svg>
-						<span class="text-gray-700">Puntuación baja para {$hotelDetailsStore.hotelDetails?.city_trans || 'Yopal'}</span>
+						<span class="text-gray-700">Puntuación baja para {getCityTrans(hotelData)}</span>
 					</div>
 				</div>
 			</div>
@@ -838,7 +898,7 @@
 			<div class="border-b border-gray-200 p-6 flex justify-between items-start">
 				<div>
 					<h1 class="text-2xl font-bold text-gray-900 mb-2">Normas de la casa</h1>
-					<p class="text-sm text-gray-600">{$hotelDetailsStore.hotelDetails?.hotel_name || 'Holiday Inn Express Yopal by IHG'} acepta peticiones especiales. ¡Añádelas en el siguiente paso!</p>
+					<p class="text-sm text-gray-600">{getHotelNameForTitle(hotelData)} acepta peticiones especiales. ¡Añádelas en el siguiente paso!</p>
 				</div>
 				<button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-medium text-sm whitespace-nowrap ml-4">
 					Ver disponibilidad
@@ -1036,7 +1096,7 @@
 				</p>
 				
 				<p>
-					Informa a {$hotelDetailsStore.hotelDetails?.hotel_name || 'Holiday Inn Express Yopal by IHG'} con antelación de tu hora prevista de llegada. Para ello, puedes utilizar el <span class="text-blue-600 hover:underline cursor-pointer">apartado de peticiones especiales</span> al hacer la reserva o ponerte en <span class="text-blue-600 hover:underline cursor-pointer">contacto directamente con el alojamiento</span>. Los datos de contacto aparecen en la <span class="text-blue-600 hover:underline cursor-pointer">confirmación de la reserva</span>.
+					Informa a {getHotelNameForTitle(hotelData)} con antelación de tu hora prevista de llegada. Para ello, puedes utilizar el <span class="text-blue-600 hover:underline cursor-pointer">apartado de peticiones especiales</span> al hacer la reserva o ponerte en <span class="text-blue-600 hover:underline cursor-pointer">contacto directamente con el alojamiento</span>. Los datos de contacto aparecen en la <span class="text-blue-600 hover:underline cursor-pointer">confirmación de la reserva</span>.
 				</p>
 				
 				<p class="text-gray-700">
@@ -1048,4 +1108,5 @@
 	{/if}
 </main>
 
+<Footer />
 <Footer />
