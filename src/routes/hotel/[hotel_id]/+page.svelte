@@ -14,6 +14,7 @@
 	import { reservationStore } from '$lib/stores/reservation';
 	import { validateDateRange, formatISODateOnly } from '$lib/utils/dateValidation';
 	import { HotelDetailsService } from '$lib/services/hotelDetailsService';
+	import { PRICE_DISCOUNT } from '$lib/config/discount';
 	import { 
 		type HotelData, 
 		type SearchParams,
@@ -51,6 +52,13 @@
 		rooms: 1,
 		pets: false
 	};
+
+	// Número de noches dinámico según las fechas seleccionadas
+	let nights = 1;
+	$: {
+		const res = validateDateRange(searchParams.checkInDate, searchParams.checkOutDate);
+		nights = res.ok && typeof res.nights === 'number' ? res.nights : 1;
+	}
 	
 	let isLoading = false;
 	let hasError = false;
@@ -372,7 +380,7 @@
 </Header>
 
 <!-- Contenido principal -->
-<main class="min-h-screen max-w-[1100px] mx-auto mt-[20px]">
+<main class="min-h-screen max-w-[1100px] mx-auto mt-[85px]">
 	<div class="container mx-auto px-4 py-8">
 		
 		<!-- Estado de carga -->
@@ -407,7 +415,7 @@
 		<!-- Contenido principal (solo mostrar si no está cargando) -->
 		{#if !isLoading}
 		<!-- Ruta pagada -->
-		<div class="text-xs gap-2 flex flex-row justify-start items-center mb-4">
+		<div class="text-xs gap-2 flex flex-row flex-wrap justify-start items-center mb-4">
 			<span class="text-blue-600 hover:underline cursor-pointer">Inicio</span>
 			<span>></span>
 			<span class="text-blue-600 hover:underline cursor-pointer">Hoteles</span>
@@ -446,7 +454,7 @@
 		</div>
 
 		<!-- Titles -->
-		<div class="flex flex-row justify-between items-start">
+		<div class="flex flex-row flex-wrap justify-between items-start">
 			<div class="flex flex-col gap-2">
 				<img src="/assets/hotel/stars.png" alt="Stars" class="w-[180px] object-contain">
 				<p class="text-3xl font-bold">{getHotelName(hotelData)}</p>
@@ -485,8 +493,8 @@
 		</div>
 
 		<!-- Description & Main specs -->
-		<div class="grid grid-cols-4 w-full mt-8">
-			<div class="col-span-3 flex flex-col gap-4">
+		<div class="grid grid-cols-1 md:grid-cols-4 gap-6 w-full mt-8">
+			<div class="md:col-span-3 flex flex-col gap-4">
 				<div class="text-sm text-gray-900 whitespace-pre-line">{getHotelDescription(hotelData)}</div>
 				<span class="text-xs text-gray-600">Las distancias en la descripción del alojamiento se calculan con OpenStreetMap©</span>
 
@@ -532,7 +540,7 @@
 					</div>
 				</div>
 			</div>
-			<div class="col-span-1 bg-[#f0f6ff] p-4 rounded-lg">
+			<div class="col-span-1 md:col-span-1 bg-[#f0f6ff] p-4 rounded-lg mt-6 md:mt-0">
 				<p class="text-md font-bold text-gray-900 mb-4">Puntos fuertes del alojamiento</p>
 				<p class="text-sm font-bold text-gray-900 mb-2">¡Perfecto para alojarse 1 semana!</p>
 
@@ -569,7 +577,7 @@
 					Reserva ahora
 				</button>
 				<div class="text-xs text-gray-600 mt-2 text-center">
-					{reservationSummary.text}
+					{@html reservationSummary.text}
 				</div>
 			</div>
 		</div>
@@ -618,10 +626,10 @@
 					<table class="w-full border-collapse">
 						<!-- Encabezados -->
 						<thead>
-							<tr class="bg-blue-600 text-white">
+						<tr class="bg-blue-600 text-white">
 								<th class="text-left p-3 font-semibold text-sm border-r border-blue-500">Tipo de habitación</th>
 								<th class="text-left p-3 font-semibold text-sm border-r border-blue-500">Número de personas</th>
-								<th class="text-left p-3 font-semibold text-sm border-r border-blue-500">Precio para 2 noches</th>
+							<th class="text-left p-3 font-semibold text-sm border-r border-blue-500">Precio para {nights} {nights === 1 ? 'noche' : 'noches'}</th>
 								<th class="text-left p-3 font-semibold text-sm border-r border-blue-500">Tus opciones</th>
 								<th class="text-left p-3 font-semibold text-sm">Seleccionar habitaciones</th>
 							</tr>
@@ -685,10 +693,18 @@
 										</td>
 										
 										<!-- Precio -->
-										<td class="p-4 border-r border-gray-200 align-top">
-											<div class="font-bold text-lg text-gray-900">{roomData.price}</div>
-											<div class="text-xs text-gray-600 mt-1">+ {roomData.taxes} de impuestos y cargos</div>
-										</td>
+						<td class="p-4 border-r border-gray-200 align-top">
+							{#if roomData.priceOriginal && roomData.price}
+								<div class="flex flex-col items-start">
+									<div class="text-xs text-gray-500 line-through">{roomData.priceOriginal}</div>
+									<div class="font-bold text-lg text-gray-900">{roomData.price}</div>
+									<div class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full mt-1">- {Math.round((PRICE_DISCOUNT || 0) * 100)}%</div>
+								</div>
+							{:else}
+								<div class="font-bold text-lg text-gray-900">{roomData.price}</div>
+							{/if}
+							<div class="text-xs text-gray-600 mt-1">+ {roomData.taxes} de impuestos y cargos</div>
+						</td>
 										
 										<!-- Opciones -->
 										<td class="p-4 border-r border-gray-200 align-top">
@@ -915,12 +931,12 @@
 	<div class="max-w-7xl mx-auto px-4 py-8">
 		<div class="bg-white rounded-lg shadow-sm">
 			<!-- Header -->
-			<div class="border-b border-gray-200 p-6 flex justify-between items-start">
+			<div class="border-b border-gray-200 p-6 flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
 				<div>
 					<h1 class="text-2xl font-bold text-gray-900 mb-2">Normas de la casa</h1>
 					<p class="text-sm text-gray-600">{getHotelNameForTitle(hotelData)} acepta peticiones especiales. ¡Añádelas en el siguiente paso!</p>
 				</div>
-				<button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-medium text-sm whitespace-nowrap ml-4">
+				<button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-medium text-sm whitespace-nowrap w-full md:w-auto md:ml-4 md:self-auto">
 					Ver disponibilidad
 				</button>
 			</div>

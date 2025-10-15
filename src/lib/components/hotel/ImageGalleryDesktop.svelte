@@ -91,7 +91,7 @@
 	}
 </script>
   
-  <div class="parent">
+  <div class="parent hidden md:grid">
 	<!-- 1) Imagen principal -->
 	<figure class="div1 frame" class:skeleton={!isImageLoaded(0)}>
 	  <img 
@@ -146,12 +146,18 @@
   
   <style>
 	.parent {
-	  display: grid;
+	  display: none;
 	  grid-template-columns: repeat(5, 1fr);
 	  grid-template-rows: repeat(5, 1fr);
 	  gap: 8px;
 	  height: 420px; /* altura fija garantizada */
 	  min-height: 420px; /* altura mínima adicional */
+	}
+
+	@media (min-width: 768px) {
+	  .parent {
+		display: grid;
+	  }
 	}
   
 	/* 1) Principal: 3 columnas × 4 filas */

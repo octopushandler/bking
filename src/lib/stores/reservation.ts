@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import type { HotelDetails, HotelPhoto, HotelDescription, RoomListResponse } from './hotelDetails';
 import { StorageService } from '$lib/services/storageService';
+import { PRICE_DISCOUNT, applyPriceDiscount } from '$lib/config/discount';
 
 // Interfaces para la reserva
 export interface SelectedRoom {
@@ -319,8 +320,16 @@ function createReservationStore(initialData: ReservationData = initialState) {
 					// Actualizar cantidad existente y recalcular totales
 					const room = newSelectedRooms[existingRoomIndex];
 					const totalNights = calculateNights(state.searchParams.checkInDate, state.searchParams.checkOutDate);
-					const subtotal = room.pricePerNight * totalNights * quantity;
-					const taxes = (room.roomData.product_price_breakdown.gross_amount.value - room.roomData.product_price_breakdown.net_amount.value) * totalNights * quantity;
+					// Recalcular precio con descuento basado en roomData original
+					const gross = room.roomData.product_price_breakdown.gross_amount.value;
+					const net = room.roomData.product_price_breakdown.net_amount?.value ?? Math.round(gross * 0.8);
+					const originalTax = Math.max(0, gross - net);
+					const discountedGross = applyPriceDiscount(gross);
+					const factor = gross > 0 ? discountedGross / gross : 1;
+					const discountedTaxPerNight = Math.round(originalTax * factor);
+					const pricePerNight = discountedGross;
+					const subtotal = pricePerNight * totalNights * quantity;
+					const taxes = discountedTaxPerNight * totalNights * quantity;
 					
 					newSelectedRooms[existingRoomIndex] = {
 						...room,
@@ -333,9 +342,16 @@ function createReservationStore(initialData: ReservationData = initialState) {
 				} else {
 					// Agregar nueva habitación
 					const totalNights = calculateNights(state.searchParams.checkInDate, state.searchParams.checkOutDate);
-					const pricePerNight = roomData.product_price_breakdown.gross_amount.value;
+					// Calcular precio con descuento
+					const gross = roomData.product_price_breakdown.gross_amount.value;
+					const net = roomData.product_price_breakdown.net_amount?.value ?? Math.round(gross * 0.8);
+					const originalTax = Math.max(0, gross - net);
+					const discountedGross = applyPriceDiscount(gross);
+					const factor = gross > 0 ? discountedGross / gross : 1;
+					const discountedTaxPerNight = Math.round(originalTax * factor);
+					const pricePerNight = discountedGross;
 					const subtotal = pricePerNight * totalNights * quantity;
-					const taxes = (roomData.product_price_breakdown.gross_amount.value - roomData.product_price_breakdown.net_amount.value) * totalNights * quantity;
+					const taxes = discountedTaxPerNight * totalNights * quantity;
 					
 					const newRoom: SelectedRoom = {
 						roomId: roomData.room_id,
@@ -397,12 +413,21 @@ function createReservationStore(initialData: ReservationData = initialState) {
 			update(state => {
 				const newSelectedRooms = state.selectedRooms.map(room => {
 					if (room.roomId === roomId) {
-						const subtotal = room.pricePerNight * room.totalNights * quantity;
-						const taxes = (room.roomData.product_price_breakdown.gross_amount.value - room.roomData.product_price_breakdown.net_amount.value) * room.totalNights * quantity;
+						// Recalcular sobre datos originales con descuento
+						const gross = room.roomData.product_price_breakdown.gross_amount.value;
+						const net = room.roomData.product_price_breakdown.net_amount?.value ?? Math.round(gross * 0.8);
+						const originalTax = Math.max(0, gross - net);
+						const discountedGross = applyPriceDiscount(gross);
+						const factor = gross > 0 ? discountedGross / gross : 1;
+						const discountedTaxPerNight = Math.round(originalTax * factor);
+						const pricePerNight = discountedGross;
+						const subtotal = pricePerNight * room.totalNights * quantity;
+						const taxes = discountedTaxPerNight * room.totalNights * quantity;
 						
 						return {
 							...room,
 							quantity,
+							pricePerNight,
 							subtotal,
 							taxes,
 							total: subtotal + taxes

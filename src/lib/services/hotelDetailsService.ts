@@ -2,6 +2,7 @@ import { hotelDetailsStore, type HotelDetails, type RoomAvailability, type Hotel
 import { buildHotelDetailsUrl, buildHotelRoomsUrl, BOOKING_API_CONFIG } from '$lib/config/api';
 import { fetchWithRetry, handleApiError, fetchWithTimeout } from '$lib/utils/apiHelpers';
 import { notificationAPI } from '$lib/stores/notifications';
+import { PRICE_DISCOUNT, applyPriceDiscount } from '$lib/config/discount';
 
 export class HotelDetailsService {
 	/**
@@ -667,8 +668,11 @@ export class HotelDetailsService {
 		roomType: string;
 		rooms: Array<{
 			room: any;
-			price: string;
-			taxes: string;
+			price: string; // precio con descuento (formateado)
+			taxes: string; // impuestos con descuento (formateado)
+			priceOriginal?: string; // precio original formateado
+			taxesOriginal?: string; // impuestos originales formateados
+			currency?: string;
 			options: Array<{
 				icon: string;
 				text: string;
@@ -694,15 +698,25 @@ export class HotelDetailsService {
 		// Convertir a array y procesar cada grupo
 		return Array.from(groupedRooms.entries()).map(([roomType, rooms]) => ({
 			roomType,
-			rooms: rooms.map(room => ({
-				room,
-				price: this.formatPrice(room.product_price_breakdown.gross_amount),
-				taxes: this.formatPrice({
-					value: room.product_price_breakdown.gross_amount.value - room.product_price_breakdown.net_amount.value,
-					currency: room.product_price_breakdown.gross_amount.currency
-				}),
-				options: this.getRoomOptions(room)
-			}))
+			rooms: rooms.map(room => {
+				const gross = room.product_price_breakdown.gross_amount.value;
+				const currency = room.product_price_breakdown.gross_amount.currency;
+				const net = room.product_price_breakdown.net_amount?.value ?? Math.round(gross * 0.8);
+				const originalTax = Math.max(0, gross - net);
+				// Aplicar descuento al bruto y ajustar impuestos proporcionalmente al cambio del bruto
+				const discountedGross = applyPriceDiscount(gross);
+				const factor = gross > 0 ? discountedGross / gross : 1;
+				const discountedTax = Math.round(originalTax * factor);
+				return {
+					room,
+					price: this.formatPrice({ value: discountedGross, currency }),
+					taxes: this.formatPrice({ value: discountedTax, currency }),
+					priceOriginal: this.formatPrice({ value: gross, currency }),
+					taxesOriginal: this.formatPrice({ value: originalTax, currency }),
+					currency,
+					options: this.getRoomOptions(room)
+				};
+			})
 		}));
 	}
 

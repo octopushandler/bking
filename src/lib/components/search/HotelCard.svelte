@@ -5,6 +5,7 @@
 	import { hotelDetailsStore } from '$lib/stores/hotelDetails';
 	import { reservationStore } from '$lib/stores/reservation';
 	import { validateDateRange, diffNights } from '$lib/utils/dateValidation';
+	import { PRICE_DISCOUNT, applyPriceDiscount } from '$lib/config/discount';
 	
 	// Props
 	export let hotel: Hotel;
@@ -82,15 +83,22 @@
 		return 'text-gray-600';
 	}
 	
-	function getPriceDisplay(): string {
-		const price = hotel.priceBreakdown?.grossPrice?.value || 0;
+
+	function getDiscountedPrice(): { original: number; discounted: number; currency: string } {
+		const original = hotel.priceBreakdown?.grossPrice?.value || 0;
 		const currency = hotel.priceBreakdown?.grossPrice?.currency || hotel.currency || 'USD';
-		return formatPrice(price, currency);
+		const discounted = applyPriceDiscount(original);
+		return { original, discounted, currency };
+	}
+
+	function getPriceDisplay(): string {
+		const { discounted, currency } = getDiscountedPrice();
+		return formatPrice(discounted, currency);
 	}
 	
 	function getTaxAmount(): string {
 		// Calcular aproximadamente 20% del precio como impuestos
-		const price = hotel.priceBreakdown?.grossPrice?.value || 0;
+		const price = getDiscountedPrice().discounted || 0;
 		const taxAmount = Math.round(price * 0.2);
 		const currency = hotel.priceBreakdown?.grossPrice?.currency || hotel.currency || 'USD';
 		return formatPrice(taxAmount, currency);
@@ -280,9 +288,20 @@
 			</div>
 			
 			<!-- Precio principal -->
-			<div class="text-2xl lg:text-2xl font-bold text-gray-900 mb-1">
-				{getPriceDisplay()}
-			</div>
+			{#if PRICE_DISCOUNT && PRICE_DISCOUNT > 0}
+				<!-- Mostrar precio original tachado y badge de descuento -->
+				<div class="flex flex-col items-end mb-1">
+					{#key hotel.id}
+						{#await Promise.resolve(getDiscountedPrice()) then p}
+							<div class="text-sm text-gray-500 line-through">{formatPrice(p.original, p.currency)}</div>
+							<div class="text-2xl lg:text-2xl font-bold text-gray-900">{formatPrice(p.discounted, p.currency)}</div>
+							<div class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full mt-1">-{Math.round(PRICE_DISCOUNT * 100)}%</div>
+						{/await}
+					{/key}
+				</div>
+			{:else}
+				<div class="text-2xl lg:text-2xl font-bold text-gray-900 mb-1">{getPriceDisplay()}</div>
+			{/if}
 			
 			<!-- Impuestos -->
 			<div class="text-sm lg:text-sm text-gray-500 mb-4">

@@ -6,6 +6,7 @@
 	import Footer from '$lib/components/common/footer.svelte';
 	import { reservationStore } from '$lib/stores/reservation';
 	import { HotelDetailsService } from '$lib/services/hotelDetailsService';
+	import { PRICE_DISCOUNT } from '$lib/config/discount';
 
 	// Variables reactivas del store de reserva
 	$: reservationData = $reservationStore;
@@ -549,7 +550,15 @@
 					<div class="mb-4">
 						<div class="flex justify-between items-start mb-2">
 							<span class="text-xl font-bold text-gray-900">Precio</span>
-							<span class="text-xl font-bold text-gray-900">{formatPrice(totals.total)}</span>
+							<div class="text-right">
+								{#if PRICE_DISCOUNT && PRICE_DISCOUNT > 0}
+									<div class="text-xs text-gray-500 line-through">{formatPrice(Math.round(totals.total / (1 - PRICE_DISCOUNT)))}</div>
+									<div class="text-xl font-bold text-gray-900">{formatPrice(totals.total)}</div>
+									<div class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full mt-1 inline-block">- {Math.round(PRICE_DISCOUNT * 100)}%</div>
+								{:else}
+									<span class="text-xl font-bold text-gray-900">{formatPrice(totals.total)}</span>
+								{/if}
+							</div>
 						</div>
 						<p class="text-xs text-gray-600 text-right">Se pueden aplicar otros cargos</p>
 						<p class="text-xs text-gray-600 text-right">En la moneda del alojamiento: {getOriginalCurrencyPrice()}</p>
