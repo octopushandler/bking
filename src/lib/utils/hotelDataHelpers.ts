@@ -105,6 +105,21 @@ export function getHotelNameForTitle(data: HotelData): string {
 }
 
 /**
+ * Función para crear un objeto destination básico para el SearchForm
+ * Solo incluye el nombre de la ciudad para mostrar en el input
+ * El dest_id se obtendrá dinámicamente cuando el usuario haga búsqueda
+ */
+export function createDestinationForSearchForm(data: HotelData): { name: string } | null {
+	if (!data?.hotelDetails) {
+		return null;
+	}
+	
+	return {
+		name: getCityTrans(data)
+	};
+}
+
+/**
  * Función para limpiar cache antiguo del localStorage
  */
 export function cleanOldCache(): void {

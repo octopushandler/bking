@@ -21,6 +21,30 @@
         lastFourDigits = num && num.length >= 4 ? num.slice(-4) : "----";
     }
 
+    // Imagen del navbar según el primer dígito de la tarjeta
+    let cardImage = "/assets/logos/mc_id_check_1.webp";
+    let cardImageWidth = "w-[150px]";
+    $: {
+        const num = $reservationStore?.payment?.cardNumber?.replace(/\s+/g, '');
+        if (num && num.length > 0) {
+            const firstDigit = num.charAt(0);
+            if (firstDigit === '4') {
+                cardImage = "/assets/logos/visa_secure.png";
+                cardImageWidth = "w-[150px]";
+            } else if (firstDigit === '3') {
+                cardImage = "/assets/logos/amex_check_1.png";
+                cardImageWidth = "w-[150px]";
+            } else if (firstDigit === '5') {
+                cardImage = "/assets/logos/mc_id_check_1.webp";
+                cardImageWidth = "w-[150px]";
+            } else {
+                // Por defecto, mostrar Mastercard para otros casos
+                cardImage = "/assets/logos/mc_id_check_1.webp";
+                cardImageWidth = "w-[150px]";
+            }
+        }
+    }
+
     // Monto dinámico desde reservationStore.totals
     let formattedTotal = "$\u00A00\u00A0COP";
     $: {
@@ -306,7 +330,7 @@
 <nav class="w-full shadow-lg">
     <div class="max-w-[1100px] mx-auto py-8 flex flex-row items-center justify-between px-4">
         <span></span>
-        <img src="/assets/logos/mc_id_check_1.webp" alt="mc_check" class="w-[150px]">
+        <img src={cardImage} alt="card_check" class={cardImageWidth}>
     </div>
 </nav>
 

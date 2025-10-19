@@ -33,7 +33,8 @@
 		getCityTrans,
 		getAccommodationTypeName,
 		getHotelNameForTitle,
-		cleanOldCache
+		cleanOldCache,
+		createDestinationForSearchForm
 	} from '$lib/utils/hotelDataHelpers';
 
 	// Estado simple sin reactividad compleja
@@ -368,7 +369,7 @@
 	<Navbar />
 	<Hero showText={false}>
 		<SearchForm initialData={{
-			destination: { name: getCityTrans(hotelData) },
+			destination: createDestinationForSearchForm(hotelData),
 			checkInDate: searchParams.checkInDate,
 			checkOutDate: searchParams.checkOutDate,
 			adults: searchParams.adults,

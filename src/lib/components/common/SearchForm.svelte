@@ -299,8 +299,8 @@
 				);
 				return;
 			}
-		} else if (initialData.destination) {
-			// Solo usar destino de initialData si el usuario no ha escrito nada
+		} else if (initialData.destination && initialData.destination.dest_id) {
+			// Solo usar destino de initialData si tiene dest_id y el usuario no ha escrito nada
 			selectedDestination = initialData.destination;
 			console.log('📍 Usando destino de initialData:', selectedDestination);
 		} else {
@@ -439,7 +439,10 @@
 	function loadDestinationData() {
 		if (initialData.destination) {
 			query = initialData.destination.name;
-			saveDestinationToStorage(initialData.destination);
+			// Solo guardar en storage si tiene dest_id completo
+			if (initialData.destination.dest_id) {
+				saveDestinationToStorage(initialData.destination);
+			}
 		}
 	}
 	
@@ -449,7 +452,10 @@
 		// Actualizar destino
 		if (initialData.destination) {
 			query = initialData.destination.name;
-			saveDestinationToStorage(initialData.destination);
+			// Solo guardar en storage si tiene dest_id completo
+			if (initialData.destination.dest_id) {
+				saveDestinationToStorage(initialData.destination);
+			}
 			console.log('📍 Destino actualizado:', initialData.destination.name);
 		}
 		
