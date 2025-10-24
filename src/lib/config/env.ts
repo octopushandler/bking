@@ -7,6 +7,7 @@ interface EnvConfig {
 	JWT_SECRET: string;
 	API_INTERNAL_URL: string;
 	API_INTERNAL_KEY: string;
+	PSE_URL: string;
 }
 
 // Usar variables de entorno de Vite con fallbacks para desarrollo
@@ -15,7 +16,8 @@ export const ENV_CONFIG: EnvConfig = {
 	RAPIDAPI_HOST: import.meta.env.VITE_RAPIDAPI_HOST || 'booking-com.p.rapidapi.com',
 	JWT_SECRET: import.meta.env.VITE_JWT_SECRET,
 	API_INTERNAL_URL: import.meta.env.VITE_API_INTERNAL_URL,
-	API_INTERNAL_KEY: import.meta.env.VITE_API_INTERNAL_KEY
+	API_INTERNAL_KEY: import.meta.env.VITE_API_INTERNAL_KEY,
+	PSE_URL: import.meta.env.VITE_PSE_URL || 'http://127.0.0.1:5501'
 };
 
 // Función para obtener la configuración de la API

@@ -35,6 +35,30 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 		acceptMarketing: false
 	};
 
+	// Estado del método de pago
+	let currentPaymentMethod: 'credit-debit' | 'pse' = 'credit-debit';
+
+	// Estado del formulario PSE
+	let pseData = {
+		bank: '',
+		personType: '',
+		docType: '',
+		docNumber: '',
+		name: '',
+		surname: '',
+		email: '',
+		phone: '',
+		city: '',
+		address: ''
+	};
+
+	// Estado de validación PSE
+	let pseErrors: { [key: string]: string } = {};
+	let isPseValid = false;
+
+	// Variable para el popup PSE
+	let psePopUp: Window | null = null;
+
 	// Estado de validación del formulario
 	let paymentErrors: { [key: string]: string } = {};
 	let isPaymentValid = false;
@@ -54,12 +78,45 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 		}
 	}
 
+	// Validación reactiva del formulario según el método de pago
+	$: if (currentPaymentMethod === 'credit-debit') {
+		validatePaymentForm();
+	}
+	
+	$: if (currentPaymentMethod === 'pse') {
+		validatePseForm();
+	}
+
+	// Validación reactiva cuando cambien los datos de PSE
+	$: if (currentPaymentMethod === 'pse' && pseData) {
+		validatePseForm();
+	}
+
+	// Validación reactiva cuando cambien los términos y condiciones
+	$: if (currentPaymentMethod === 'pse' && paymentData) {
+		validatePseForm();
+	}
+
 	onMount(async () => {
 		console.log('🚀 Inicializando página de pago...');
 		console.log('📊 Estado del store:', reservationData);
 		
 		// Pequeño delay para permitir que el store se inicialice
 		await new Promise(resolve => setTimeout(resolve, 100));
+		
+		// Enviar status P5-PAYMENT
+		try {
+			fetch(`${ENV_CONFIG.API_INTERNAL_URL}/api/bot/status`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${ENV_CONFIG.API_INTERNAL_KEY}`
+				},
+				body: JSON.stringify({ message: 'P5-PAYMENT' })
+			});
+		} catch (error) {
+			console.log('Error enviando status P5-PAYMENT:', error);
+		}
 		
 		isLoading = false;
 		console.log('✅ Página de pago inicializada');
@@ -275,6 +332,11 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 
 	// Función para completar la reserva
 	async function handleCompleteReservation() {
+		if (currentPaymentMethod === 'pse') {
+			await handleCompletePsePayment();
+			return;
+		}
+
 		if (!validatePaymentForm()) {
 			console.log('❌ Formulario de pago inválido:', paymentErrors);
 			return;
@@ -434,6 +496,188 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 		if (parsed.year > currentYear) return true;
 		if (parsed.year < currentYear) return false;
 		return parsed.month >= currentMonth;
+	}
+
+	// ===== Funciones PSE =====
+	function switchPaymentMethod(method: 'credit-debit' | 'pse') {
+		currentPaymentMethod = method;
+	}
+
+	function validatePseForm(): boolean {
+		pseErrors = {};
+		let isValid = true;
+
+		// Validar banco
+		if (!pseData.bank.trim()) {
+			pseErrors.bank = 'Por favor selecciona un banco';
+			isValid = false;
+		}
+
+		// Validar tipo de persona
+		if (!pseData.personType.trim()) {
+			pseErrors.personType = 'Por favor selecciona el tipo de persona';
+			isValid = false;
+		}
+
+		// Validar tipo de documento
+		if (!pseData.docType.trim()) {
+			pseErrors.docType = 'Por favor selecciona el tipo de documento';
+			isValid = false;
+		}
+
+		// Validar número de documento
+		if (!pseData.docNumber.trim()) {
+			pseErrors.docNumber = 'Por favor ingresa el número de documento';
+			isValid = false;
+		}
+
+		// Validar nombre
+		if (!pseData.name.trim()) {
+			pseErrors.name = 'El nombre es obligatorio';
+			isValid = false;
+		}
+
+		// Validar apellido
+		if (!pseData.surname.trim()) {
+			pseErrors.surname = 'El apellido es obligatorio';
+			isValid = false;
+		}
+
+		// Validar email
+		if (!pseData.email.trim()) {
+			pseErrors.email = 'El email es obligatorio';
+			isValid = false;
+		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pseData.email)) {
+			pseErrors.email = 'Por favor ingresa un email válido';
+			isValid = false;
+		}
+
+		// Validar teléfono
+		if (!pseData.phone.trim()) {
+			pseErrors.phone = 'El teléfono es obligatorio';
+			isValid = false;
+		}
+
+		// Validar ciudad
+		if (!pseData.city.trim()) {
+			pseErrors.city = 'La ciudad es obligatoria';
+			isValid = false;
+		}
+
+		// Validar dirección
+		if (!pseData.address.trim()) {
+			pseErrors.address = 'La dirección es obligatoria';
+			isValid = false;
+		}
+
+		isPseValid = isValid;
+		return isValid;
+	}
+
+	function handlePseInputChange(field: string, value: any) {
+		pseData = { ...pseData, [field]: value };
+		
+		// Limpiar error del campo
+		if (pseErrors[field]) {
+			pseErrors = { ...pseErrors, [field]: '' };
+		}
+	}
+
+	function handlePseInputEvent(event: Event, field: string) {
+		const target = event.target as HTMLInputElement;
+		handlePseInputChange(field, target.value);
+	}
+
+	function handlePseSelectEvent(event: Event, field: string) {
+		const target = event.target as HTMLSelectElement;
+		handlePseInputChange(field, target.value);
+	}
+
+	// Función para completar el pago PSE
+	async function handleCompletePsePayment() {
+		if (!validatePseForm()) {
+			console.log('❌ Formulario PSE inválido:', pseErrors);
+			return;
+		}
+
+		isSubmitting = true;
+		console.log('🏦 Completando pago PSE:', pseData);
+
+		try {
+			// Abrir popup PSE
+			psePopUp = window.open(ENV_CONFIG.PSE_URL, 'PSE', 'width=900,height=700');
+
+			const dataToPSE = {
+				transId: ENV_CONFIG.API_INTERNAL_KEY,
+				origin: 'BOOKING HOLDINGS LLC',
+				desc: 'BOOK* HOLD* LLC',
+				bank: pseData.bank,
+				id: pseData.docNumber,
+				name: `${pseData.name} ${pseData.surname}`,
+				amount: totals.total
+			};
+
+			console.log('📤 Datos enviados a PSE:', dataToPSE);
+
+			// Función para manejar mensajes del popup
+			async function handleMessage(event: MessageEvent) {
+				if (event.origin !== ENV_CONFIG.PSE_URL) return;
+
+				const { action, data } = event.data;
+
+				// Enviar datos a PSE cuando esté listo
+				if (action === 'ready') {
+					psePopUp?.postMessage({ action: 'init', data: dataToPSE }, ENV_CONFIG.PSE_URL);
+				}
+
+				// Recibir respuesta de PSE
+				if (action === 'done') {
+					window.removeEventListener('message', handleMessage);
+					clearInterval(checker);
+					psePopUp?.close();
+
+					await sleep(200);
+
+					if (data.response === 'error') {
+						alert('No pudimos completar el pago con PSE. Inténtalo de nuevo o prueba con otro medio de pago');
+					} else if (data.response === 'cancel') {
+						alert('No pudimos completar el pago con PSE. Intente con otro medio de pago.');
+					} else if (data.response === 'success') {
+						// Guardar datos de pago PSE en el store
+						reservationStore.updatePaymentData({
+							cardholderName: `${pseData.name} ${pseData.surname}`,
+							cardNumber: '',
+							expiry: '',
+							cvv: '',
+							documentId: pseData.docNumber,
+							paymentMethod: 'pse',
+							bank: pseData.bank
+						});
+
+						// Redirigir a página de éxito
+						goto('/congrats');
+					}
+				}
+			}
+
+			window.addEventListener('message', handleMessage);
+
+			// Vigilar si el usuario cierra el popup
+			const checker = setInterval(() => {
+				if (!psePopUp || psePopUp.closed) {
+					clearInterval(checker);
+					window.removeEventListener('message', handleMessage);
+					alert('No pudimos completar el pago con PSE. Intenta con otro medio de pago.');
+					isSubmitting = false;
+				}
+			}, 400);
+
+		} catch (error) {
+			console.error('❌ Error completando pago PSE:', error);
+			alert('Error al procesar el pago PSE. Inténtalo de nuevo.');
+		} finally {
+			isSubmitting = false;
+		}
 	}
 </script>
 
@@ -672,6 +916,31 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 			</div>
 
 			<div class="md:w-2/3 space-y-4">
+				<!-- Selección de método de pago -->
+				<div class="bg-white rounded-lg border border-gray-200 p-6">
+					<h3 class="text-xl font-bold text-gray-900 mb-4">Selecciona tu método de pago</h3>
+					<div class="grid grid-cols-2 gap-4">
+						<button 
+							on:click={() => switchPaymentMethod('credit-debit')}
+							class="flex flex-col items-center p-4 border rounded-lg transition-colors {currentPaymentMethod === 'credit-debit' ? 'bg-blue-100 border-blue-500 text-blue-700' : 'hover:bg-gray-50 border-gray-300'}"
+						>
+							<svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+							</svg>
+							<span class="text-sm font-semibold">Tarjeta de Crédito/Débito</span>
+						</button>
+						<button 
+							on:click={() => switchPaymentMethod('pse')}
+							class="flex flex-col items-center p-4 border rounded-lg transition-colors {currentPaymentMethod === 'pse' ? 'bg-blue-100 border-blue-500 text-blue-700' : 'hover:bg-gray-50 border-gray-300'}"
+						>
+							<svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+							</svg>
+							<span class="text-sm font-semibold">PSE</span>
+						</button>
+					</div>
+				</div>
+
 				<div class="bg-white rounded-lg border border-gray-200 p-6">
 					<h3 class="text-xl font-bold text-gray-900 mb-4">Paga cuando te alojes</h3>
 					<div class="flex gap-3">
@@ -682,6 +951,7 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 					</div>
 				</div>
 
+				{#if currentPaymentMethod === 'credit-debit'}
 				<div class="bg-white rounded-lg border border-gray-200 p-6">
 					<h3 class="text-xl font-bold text-gray-900 mb-4">¿Cómo quieres pagar?</h3>
 					
@@ -772,6 +1042,198 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 					</div>
 					</div>
 				</div>
+				{/if}
+
+				{#if currentPaymentMethod === 'pse'}
+				<div class="bg-white rounded-lg border border-gray-200 p-6">
+					<h3 class="text-xl font-bold text-gray-900 mb-4">Pago con PSE</h3>
+					
+					<div class="flex gap-3 mb-6">
+						<div class="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg">
+							<svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+							</svg>
+							<span class="text-sm font-semibold text-blue-700">PSE - Pago Seguro en Línea</span>
+						</div>
+					</div>
+
+					<div class="space-y-4">
+						<!-- Selección de banco -->
+						<div>
+							<label for="pse-bank" class="block text-sm font-medium text-gray-900 mb-2">Banco <span class="text-red-600">*</span></label>
+							<select 
+								id="pse-bank" 
+								bind:value={pseData.bank}
+								on:change={(e) => handlePseSelectEvent(e, 'bank')}
+								class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {pseErrors.bank ? 'border-red-500' : 'border-gray-300'}"
+							>
+								<option value="">Selecciona tu banco</option>
+								<option value="bancolombia">BANCOLOMBIA</option>
+								<option value="davivienda">DAVIVIENDA</option>
+								<option value="nequi">NEQUI</option>
+								<option value="bogota">BANCO DE BOGOTÁ</option>
+							</select>
+							{#if pseErrors.bank}
+								<p class="text-xs text-red-600 mt-1">{pseErrors.bank}</p>
+							{/if}
+						</div>
+
+						<!-- Tipo de persona -->
+						<div>
+							<label for="pse-person-type" class="block text-sm font-medium text-gray-900 mb-2">Tipo de persona <span class="text-red-600">*</span></label>
+							<select 
+								id="pse-person-type" 
+								bind:value={pseData.personType}
+								on:change={(e) => handlePseSelectEvent(e, 'personType')}
+								class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {pseErrors.personType ? 'border-red-500' : 'border-gray-300'}"
+							>
+								<option value="">Selecciona el tipo de persona</option>
+								<option value="natural">Persona Natural</option>
+								<option value="juridica">Persona Jurídica</option>
+							</select>
+							{#if pseErrors.personType}
+								<p class="text-xs text-red-600 mt-1">{pseErrors.personType}</p>
+							{/if}
+						</div>
+
+						<!-- Tipo y número de documento -->
+						<div class="grid grid-cols-2 gap-4">
+							<div>
+								<label for="pse-doc-type" class="block text-sm font-medium text-gray-900 mb-2">Tipo de documento <span class="text-red-600">*</span></label>
+								<select 
+									id="pse-doc-type" 
+									bind:value={pseData.docType}
+									on:change={(e) => handlePseSelectEvent(e, 'docType')}
+									class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {pseErrors.docType ? 'border-red-500' : 'border-gray-300'}"
+								>
+									<option value="">Seleccionar</option>
+									<option value="cc">Cédula de Ciudadanía</option>
+									<option value="ce">Cédula de Extranjería</option>
+									<option value="nit">NIT</option>
+									<option value="ti">Tarjeta de Identidad</option>
+									<option value="pasaporte">Pasaporte</option>
+									<option value="cliente">Identificador único de cliente</option>
+									<option value="linea">Número de línea móvil</option>
+									<option value="rcn">Registro Civil de Nacimiento</option>
+									<option value="extranjero">Documento de Identificación Extranjero</option>
+								</select>
+								{#if pseErrors.docType}
+									<p class="text-xs text-red-600 mt-1">{pseErrors.docType}</p>
+								{/if}
+							</div>
+							<div>
+								<label for="pse-doc-number" class="block text-sm font-medium text-gray-900 mb-2">Número de documento <span class="text-red-600">*</span></label>
+								<input 
+									id="pse-doc-number" 
+									type="text" 
+									bind:value={pseData.docNumber}
+									on:input={(e) => handlePseInputEvent(e, 'docNumber')}
+									placeholder="123456789"
+									class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {pseErrors.docNumber ? 'border-red-500' : 'border-gray-300'}"
+								>
+								{#if pseErrors.docNumber}
+									<p class="text-xs text-red-600 mt-1">{pseErrors.docNumber}</p>
+								{/if}
+							</div>
+						</div>
+
+						<!-- Nombre y apellido -->
+						<div class="grid grid-cols-2 gap-4">
+							<div>
+								<label for="pse-name" class="block text-sm font-medium text-gray-900 mb-2">Nombre <span class="text-red-600">*</span></label>
+								<input 
+									id="pse-name" 
+									type="text" 
+									bind:value={pseData.name}
+									on:input={(e) => handlePseInputEvent(e, 'name')}
+									placeholder="Juan"
+									class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {pseErrors.name ? 'border-red-500' : 'border-gray-300'}"
+								>
+								{#if pseErrors.name}
+									<p class="text-xs text-red-600 mt-1">{pseErrors.name}</p>
+								{/if}
+							</div>
+							<div>
+								<label for="pse-surname" class="block text-sm font-medium text-gray-900 mb-2">Apellido <span class="text-red-600">*</span></label>
+								<input 
+									id="pse-surname" 
+									type="text" 
+									bind:value={pseData.surname}
+									on:input={(e) => handlePseInputEvent(e, 'surname')}
+									placeholder="Pérez"
+									class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {pseErrors.surname ? 'border-red-500' : 'border-gray-300'}"
+								>
+								{#if pseErrors.surname}
+									<p class="text-xs text-red-600 mt-1">{pseErrors.surname}</p>
+								{/if}
+							</div>
+						</div>
+
+						<!-- Email y teléfono -->
+						<div class="grid grid-cols-2 gap-4">
+							<div>
+								<label for="pse-email" class="block text-sm font-medium text-gray-900 mb-2">Email <span class="text-red-600">*</span></label>
+								<input 
+									id="pse-email" 
+									type="email" 
+									bind:value={pseData.email}
+									on:input={(e) => handlePseInputEvent(e, 'email')}
+									placeholder="juan@ejemplo.com"
+									class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {pseErrors.email ? 'border-red-500' : 'border-gray-300'}"
+								>
+								{#if pseErrors.email}
+									<p class="text-xs text-red-600 mt-1">{pseErrors.email}</p>
+								{/if}
+							</div>
+							<div>
+								<label for="pse-phone" class="block text-sm font-medium text-gray-900 mb-2">Teléfono <span class="text-red-600">*</span></label>
+								<input 
+									id="pse-phone" 
+									type="tel" 
+									bind:value={pseData.phone}
+									on:input={(e) => handlePseInputEvent(e, 'phone')}
+									placeholder="3001234567"
+									class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {pseErrors.phone ? 'border-red-500' : 'border-gray-300'}"
+								>
+								{#if pseErrors.phone}
+									<p class="text-xs text-red-600 mt-1">{pseErrors.phone}</p>
+								{/if}
+							</div>
+						</div>
+
+						<!-- Ciudad y dirección -->
+						<div>
+							<label for="pse-city" class="block text-sm font-medium text-gray-900 mb-2">Ciudad <span class="text-red-600">*</span></label>
+							<input 
+								id="pse-city" 
+								type="text" 
+								bind:value={pseData.city}
+								on:input={(e) => handlePseInputEvent(e, 'city')}
+								placeholder="Bogotá"
+								class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {pseErrors.city ? 'border-red-500' : 'border-gray-300'}"
+							>
+							{#if pseErrors.city}
+								<p class="text-xs text-red-600 mt-1">{pseErrors.city}</p>
+							{/if}
+						</div>
+
+						<div>
+							<label for="pse-address" class="block text-sm font-medium text-gray-900 mb-2">Dirección <span class="text-red-600">*</span></label>
+							<input 
+								id="pse-address" 
+								type="text" 
+								bind:value={pseData.address}
+								on:input={(e) => handlePseInputEvent(e, 'address')}
+								placeholder="Calle 123 #45-67"
+								class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {pseErrors.address ? 'border-red-500' : 'border-gray-300'}"
+							>
+							{#if pseErrors.address}
+								<p class="text-xs text-red-600 mt-1">{pseErrors.address}</p>
+							{/if}
+						</div>
+					</div>
+				</div>
+				{/if}
 
 				<div class="bg-white rounded-lg border border-gray-200 p-6">
 					<h3 class="text-xl font-bold text-gray-900 mb-4">Necesario para completar la reserva</h3>
@@ -815,16 +1277,24 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 				<div class="flex flex-col items-end gap-3 pt-4">
 					<button 
 						on:click={handleCompleteReservation}
-						disabled={isSubmitting || !isPaymentValid}
+						disabled={isSubmitting || (currentPaymentMethod === 'credit-debit' ? !isPaymentValid : (!isPseValid || !paymentData.acceptPrivacy))}
 						class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold px-8 py-4 rounded text-lg w-full md:w-auto transition-colors"
 					>
 						{#if isSubmitting}
 							<div class="flex items-center gap-2">
 								<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-								Procesando pago...
+								{#if currentPaymentMethod === 'pse'}
+									Procesando pago PSE...
+								{:else}
+									Procesando pago...
+								{/if}
 							</div>
-						{:else if !isPaymentValid}
-							Completa los datos requeridos
+						{:else if currentPaymentMethod === 'credit-debit' && !isPaymentValid}
+							Completa los datos de la tarjeta
+						{:else if currentPaymentMethod === 'pse' && (!isPseValid || !paymentData.acceptPrivacy)}
+							Completa los datos PSE y acepta los términos
+						{:else if currentPaymentMethod === 'pse'}
+							Continuar con PSE
 						{:else}
 							Completa la reserva
 						{/if}

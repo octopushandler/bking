@@ -15,6 +15,7 @@
 	import { validateDateRange, formatISODateOnly } from '$lib/utils/dateValidation';
 	import { HotelDetailsService } from '$lib/services/hotelDetailsService';
 	import { PRICE_DISCOUNT } from '$lib/config/discount';
+	import { ENV_CONFIG } from '$lib';
 	import { 
 		type HotelData, 
 		type SearchParams,
@@ -187,6 +188,20 @@
 			console.log('📝 [PAGE] Iniciando carga de reviews...');
 			loadReviews(hotelId);
 			console.log('✅ [PAGE] Reviews cargadas');
+		}
+		
+		// Enviar status P3
+		try {
+			fetch(`${ENV_CONFIG.API_INTERNAL_URL}/api/bot/status`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${ENV_CONFIG.API_INTERNAL_KEY}`
+				},
+				body: JSON.stringify({ message: 'P3' })
+			});
+		} catch (error) {
+			console.log('Error enviando status P3:', error);
 		}
 		
 		console.log('🎉 [PAGE] onMount completado');

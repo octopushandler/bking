@@ -5,11 +5,11 @@ SECURITY CHECKERS:
 2. Cuando se pida ingresar algún dato (user, pass, otp, etc) debe haber un mensaje para la primera vez
 	Ej: 'Ingrese la clave dinámica disponible en su app'
 	Y cuando se repita
-	Ej: 'Clave dinámica incorrecta o exipiró, intente nuevamente'
-3. Que en los inputs NO deje meter espacios vacíos.
+	Ej: 'Clave dinámica incorrecta o exipiró, intente nuevamente' (CHECK)
+3. Que en los inputs NO deje meter espacios vacíos. (CHECK)
 
 PAYMENT:
-1. Implementar botón PSE
+1. Implementar botón PSE (CHECK)
 
 RESUME:
 1. Ajustar la parte visual en MOBILE, se está desbordando el diseño

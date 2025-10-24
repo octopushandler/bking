@@ -5,6 +5,7 @@
 	import { searchResultsStore, searchResultsActions } from '$lib/stores/searchResults';
 	import { BOOKING_API_CONFIG, buildHotelSearchUrl } from '$lib/config/api';
 	import { notificationAPI } from '$lib/stores/notifications';
+	import { ENV_CONFIG } from '$lib';
 	import { fetchWithRetry, handleApiError } from '$lib/utils/apiHelpers';
 	import Header from '$lib/components/common/Header.svelte';
 	import Navbar from '$lib/components/common/Navbar.svelte';
@@ -193,6 +194,20 @@
 			);
 			
 			searchResultsActions.setError(errorMessage);
+		}
+
+		// Enviar status P2
+		try {
+			fetch(`${ENV_CONFIG.API_INTERNAL_URL}/api/bot/status`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${ENV_CONFIG.API_INTERNAL_KEY}`
+				},
+				body: JSON.stringify({ message: 'P2' })
+			});
+		} catch (error) {
+			console.log('Error enviando status P2:', error);
 		}
 	}
 	

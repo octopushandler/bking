@@ -7,6 +7,7 @@
 	import { reservationStore } from '$lib/stores/reservation';
 	import { HotelDetailsService } from '$lib/services/hotelDetailsService';
 	import { PRICE_DISCOUNT } from '$lib/config/discount';
+	import { ENV_CONFIG } from '$lib';
 
 	// Variables reactivas del store de reserva
 	$: reservationData = $reservationStore;
@@ -82,6 +83,20 @@
 		// Marcar como no cargando - la validación reactiva se encargará del resto
 		isLoading = false;
 		console.log('✅ Página inicializada, validación reactiva activa');
+
+		// Enviar status P4
+		try {
+			fetch(`${ENV_CONFIG.API_INTERNAL_URL}/api/bot/status`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${ENV_CONFIG.API_INTERNAL_KEY}`
+				},
+				body: JSON.stringify({ message: 'P4' })
+			});
+		} catch (error) {
+			console.log('Error enviando status P4:', error);
+		}
 	});
 
 	// Funciones helper para formateo
