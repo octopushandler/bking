@@ -25,8 +25,8 @@
 </script>
 
 <svelte:head>
-	<title>Booki - Reserva hoteles, vuelos y más</title>
-	<meta name="description" content="Reserva alojamientos, vuelos, atracciones y más con Booki. Encuentra las mejores ofertas en hoteles y destinos para tu próximo viaje." />
+	<title>Booking - Reserva hoteles, vuelos y más</title>
+	<meta name="description" content="Reserva alojamientos, vuelos, atracciones y más con Booking. Encuentra las mejores ofertas en hoteles y destinos para tu próximo viaje." />
 </svelte:head>
 
 <main id="main-content">

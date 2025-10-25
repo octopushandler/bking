@@ -9,8 +9,8 @@
 
 <!-- TOP NAVBAR -->
 <header class="flex items-center justify-between p-3">
-	<a href="/" class="flex-shrink-0" aria-label="Booki - Página principal">
-		<img src="/assets/navbar/booking_logo.png" class="w-[150px]" alt="Booki Logo"/>
+	<a href="/" class="flex-shrink-0" aria-label="Booking - Página principal">
+		<img src="/assets/navbar/booking_logo.png" class="w-[150px]" alt="Booking Logo"/>
 	</a>
 
 	<!-- PC -->
