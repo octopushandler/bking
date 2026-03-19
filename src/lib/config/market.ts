@@ -46,11 +46,6 @@ const MARKET_BY_COUNTRY: Record<string, Omit<MarketConfig, 'locale'>> = {
 	}
 };
 
-export const DEFAULT_MARKET: MarketConfig = {
-	...MARKET_BY_COUNTRY.CO,
-	locale: getLocaleForCurrency('COP')
-};
-
 function getFallbackCountryCode(): string {
 	const fallbackCountryCode = ENV_CONFIG.FALLBACK_COUNTRY_CODE?.trim().toUpperCase();
 	return fallbackCountryCode && MARKET_BY_COUNTRY[fallbackCountryCode] ? fallbackCountryCode : 'CO';
@@ -62,6 +57,10 @@ function buildMarketConfig(base: Omit<MarketConfig, 'locale'>): MarketConfig {
 		locale: getLocaleForCurrency(base.currency)
 	};
 }
+
+export const DEFAULT_MARKET: MarketConfig = buildMarketConfig(
+	MARKET_BY_COUNTRY[getFallbackCountryCode()]
+);
 
 export function getMarketByCountryCode(countryCode?: string | null): MarketConfig {
 	const normalizedCountryCode = countryCode?.trim().toUpperCase();
@@ -115,55 +114,6 @@ export function getCurrentLocale(): string {
 	return getCurrentMarket().locale;
 }
 
-async function fetchCountryCode(
-	url: string,
-	extractCountryCode: (data: any) => string | null
-): Promise<string | null> {
-	try {
-		const response = await fetch(url);
-		if (!response.ok) {
-			return null;
-		}
-
-		const data = await response.json();
-		return extractCountryCode(data);
-	} catch (error) {
-		return null;
-	}
-}
-
-async function resolveCountryCodeFromIp(): Promise<string | null> {
-	const providers: Array<{
-		url: string;
-		extractCountryCode: (data: any) => string | null;
-	}> = [
-		{
-			url: 'https://ipapi.co/json/',
-			extractCountryCode: (data) =>
-				typeof data?.country_code === 'string' ? data.country_code : null
-		},
-		{
-			url: 'https://freeipapi.com/api/json/',
-			extractCountryCode: (data) =>
-				typeof data?.countryCode === 'string' ? data.countryCode : null
-		},
-		{
-			url: 'https://ipwho.is/',
-			extractCountryCode: (data) =>
-				data?.success && typeof data?.country_code === 'string' ? data.country_code : null
-		}
-	];
-
-	for (const provider of providers) {
-		const countryCode = await fetchCountryCode(provider.url, provider.extractCountryCode);
-		if (countryCode) {
-			return countryCode;
-		}
-	}
-
-	return getFallbackCountryCode();
-}
-
 function createMarketStore() {
 	const initialMarket = getCurrentMarket();
 	const { subscribe, set } = writable<MarketConfig>(initialMarket);
@@ -177,11 +127,7 @@ function createMarketStore() {
 			return market;
 		},
 		initialize: async () => {
-			const storedMarket = loadStoredMarket();
-			set(storedMarket);
-
-			const countryCode = await resolveCountryCodeFromIp();
-			const market = getMarketByCountryCode(countryCode);
+			const market = getMarketByCountryCode(getFallbackCountryCode());
 			persistMarket(market);
 			set(market);
 			return market;
