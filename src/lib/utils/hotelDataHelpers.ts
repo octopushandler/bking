@@ -85,7 +85,7 @@ export function getHotelPhotos(data: HotelData): Array<{ src: string; alt: strin
 }
 
 export function getCountryTrans(data: HotelData): string {
-	return data?.hotelDetails?.country_trans || 'Colombia';
+	return data?.hotelDetails?.country_trans || 'Ecuador';
 }
 
 export function getDistrict(data: HotelData): string {

@@ -16,6 +16,7 @@
 	import LoadingSpinner from '$lib/components/common/LoadingSpinner.svelte';
 	import HotelCardSkeleton from '$lib/components/common/HotelCardSkeleton.svelte';
 	import { validateDateRange } from '$lib/utils/dateValidation';
+	import { DEFAULT_CURRENCY } from '$lib/config/currency';
 	
 	
 	// Estado reactivo
@@ -51,7 +52,7 @@
 			room_number: parseInt(urlParams.get('room_number') || '1'),
 			locale: 'es',
 			dest_type: 'city',
-			filter_by_currency: 'COP',
+			filter_by_currency: DEFAULT_CURRENCY,
 			order_by: 'popularity',
 			units: 'metric',
 			page_number: 0,
@@ -69,7 +70,7 @@
 			adults: parseInt(urlParams.get('adults_number') || '2'),
 			children: parseInt(urlParams.get('children_number') || '0'),
 			rooms: parseInt(urlParams.get('room_number') || '1'),
-			currency: 'COP',
+			currency: DEFAULT_CURRENCY,
 			sortBy: 'popularity'
 		};
 		
@@ -254,7 +255,7 @@
 <!-- Header completo con SearchForm -->
 <Header>
 	<Navbar />
-	<Hero showText={false}>
+	<Hero showText={false} showDiscountBadge={false}>
 		<SearchForm initialData={searchFormData} />
 	</Hero>
 </Header>

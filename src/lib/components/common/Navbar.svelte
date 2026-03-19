@@ -1,10 +1,17 @@
 <script lang="ts">
 	// Componente Navbar
+	import { onMount } from 'svelte';
+	import { marketStore } from '$lib/config/market';
+
 	let isMenuOpen = false;
 	
 	function toggleMenu() {
 		isMenuOpen = !isMenuOpen;
 	}
+
+	onMount(() => {
+		marketStore.initialize();
+	});
 </script>
 
 <!-- TOP NAVBAR -->
@@ -15,9 +22,9 @@
 
 	<!-- PC -->
 	<nav class="hidden md:flex items-center gap-6 text-white" aria-label="Navegación principal">
-		<div class="flex items-center gap-2" role="button" tabindex="0" aria-label="Moneda: Peso colombiano">
-			<span class="font-semibold">COP</span>
-			<img src="/assets/navbar/col_icon.png" class="w-[27px]" alt="Bandera de Colombia"/>
+		<div class="flex items-center gap-2" role="button" tabindex="0" aria-label={`Moneda: ${$marketStore.currency}`}>
+			<span class="font-semibold">{$marketStore.currency}</span>
+			<img src={$marketStore.flagAsset} class="w-[27px]" alt={`Bandera de ${$marketStore.countryName}`}/>
 		</div>
 		<button class="cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 rounded px-2 py-1" aria-label="Registra tu alojamiento">
 			Registra tu alojamiento

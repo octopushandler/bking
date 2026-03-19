@@ -15,7 +15,9 @@
 	import { validateDateRange, formatISODateOnly } from '$lib/utils/dateValidation';
 	import { HotelDetailsService } from '$lib/services/hotelDetailsService';
 	import { PRICE_DISCOUNT } from '$lib/config/discount';
+	import { DEFAULT_CURRENCY } from '$lib/config/currency';
 	import { ENV_CONFIG } from '$lib';
+	import { formatMoney } from '$lib/utils/money';
 	import { 
 		type HotelData, 
 		type SearchParams,
@@ -367,7 +369,7 @@
 			
 			reservationSummary = {
 				hasSelection: true,
-				text: `• ${totalRooms} habitación${totalRooms > 1 ? 'es' : ''} • ${totalNights} noche${totalNights > 1 ? 's' : ''} • ${totalAmount.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}`
+				text: `• ${totalRooms} habitación${totalRooms > 1 ? 'es' : ''} • ${totalNights} noche${totalNights > 1 ? 's' : ''} • ${formatMoney(totalAmount, reservationTotals?.currency || DEFAULT_CURRENCY)}`
 			};
 		}
 		console.log('✅ [PAGE] Resumen de reserva actualizado');
@@ -603,7 +605,7 @@
 	<!-- Tabla de habitaciones y reservación -->
 	<div class="max-w-7xl mx-auto px-4 py-8">
 		<p class="text-3xl font-bold mb-2">Disponibilidad</p>
-		<p class="text-md text-gray-600 mb-6">Precio convertidos a COP 🛈</p>
+		<p class="text-md text-gray-600 mb-6">Precios mostrados en {DEFAULT_CURRENCY} 🛈</p>
 
 		<!-- Selector de fechas y huéspedes -->
 		<div class="mb-6">
@@ -793,14 +795,14 @@
 								{room.quantity}x {room.roomName}
 							</span>
 							<span class="font-semibold text-gray-900">
-								{room.total.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}
+								{formatMoney(room.total, reservationTotals?.currency || DEFAULT_CURRENCY)}
 							</span>
 						</div>
 					{/each}
 					<hr class="border-blue-200 my-2">
 					<div class="flex justify-between items-center font-semibold text-blue-900">
 						<span>Total:</span>
-						<span>{reservationTotals.total.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</span>
+						<span>{formatMoney(reservationTotals.total, reservationTotals?.currency || DEFAULT_CURRENCY)}</span>
 					</div>
 				</div>
 			</div>

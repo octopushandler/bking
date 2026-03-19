@@ -1,20 +1,16 @@
-// Configuración de descuento global
-// Valor expresado como proporción: 0.10 == 10%
-// Puede venir de variable de entorno VITE_DISCOUNT_PERCENTAGE (como número: 20 = 20%)
-// o VITE_PRICE_DISCOUNT (como proporción: 0.20 = 20%)
-const discountFromEnv = import.meta.env.VITE_DISCOUNT_PERCENTAGE 
-    ? parseFloat(import.meta.env.VITE_DISCOUNT_PERCENTAGE) / 100 
-    : (import.meta.env.VITE_PRICE_DISCOUNT 
-        ? parseFloat(import.meta.env.VITE_PRICE_DISCOUNT) 
-        : null);
+import { ENV_CONFIG } from './env';
 
-export const PRICE_DISCOUNT = discountFromEnv !== null ? discountFromEnv : 0.10; // Valor por defecto: 10%
+// Configuracion de descuento global
+// Valor expresado como proporcion: 0.10 == 10%
+const normalizedDiscount = Number.isFinite(ENV_CONFIG.DISCOUNT_PERCENTAGE)
+	? ENV_CONFIG.DISCOUNT_PERCENTAGE / 100
+	: 0.10;
+
+export const PRICE_DISCOUNT = normalizedDiscount > 0 ? normalizedDiscount : 0.10;
 
 export function applyPriceDiscount(originalPrice: number): number {
-    if (!originalPrice || originalPrice <= 0) return 0;
-    if (!PRICE_DISCOUNT || PRICE_DISCOUNT <= 0) return originalPrice;
-    const discounted = originalPrice * (1 - PRICE_DISCOUNT);
-    return Math.max(0, Math.round(discounted));
+	if (!originalPrice || originalPrice <= 0) return 0;
+	if (!PRICE_DISCOUNT || PRICE_DISCOUNT <= 0) return originalPrice;
+	const discounted = originalPrice * (1 - PRICE_DISCOUNT);
+	return Math.max(0, Math.round(discounted));
 }
-
-

@@ -173,53 +173,53 @@
 <!-- SECCIÓN DE DESTINOS NACIONALES POPULARES -->
 <section class="max-w-[1100px] mx-auto mt-20 px-4">
     <p class="text-2xl font-bold mb-2">Destinos de moda</p>
-    <p class="text-zinc-500">Opciones más populares entre la comunidad viajera de Colombia</p>
+    <p class="text-zinc-500">Opciones más populares entre la comunidad viajera de Ecuador</p>
     
     <div class="flex flex-col gap-4 mt-6 sm:grid sm:grid-cols-12">
         <!-- Primera fila: 2 columnas (2/3 y 1/3) -->
         <div class="h-[200px] relative overflow-hidden rounded-lg shadow-lg group cursor-pointer sm:col-span-8">
-            <img src="/assets/common/bogota.jpg" alt="Bogotá" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+            <img src="/assets/common/galapagos.jpg" alt="Galápagos" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
             <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-transparent"></div>
             <div class="absolute top-4 left-4 flex items-center gap-2">
-                <h3 class="text-white text-xl font-bold">Bogotá</h3>
-                <img src="/assets/common/co.png" alt="Colombia" class="w-5 h-auto">
+                <h3 class="text-white text-xl font-bold">Galápagos</h3>
+                <img src="/assets/common/ec.png" alt="Ecuador" class="w-5 h-auto">
             </div>
         </div>
         
         <div class="h-[200px] relative overflow-hidden rounded-lg shadow-lg group cursor-pointer sm:col-span-4">
-            <img src="/assets/common/medellin.jpg" alt="Medellín" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+            <img src="/assets/common/Quito.png" alt="Quito" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
             <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-transparent"></div>
             <div class="absolute top-4 left-4 flex items-center gap-2">
-                <h3 class="text-white text-xl font-bold">Medellín</h3>
-                <img src="/assets/common/co.png" alt="Colombia" class="w-5 h-auto">
+                <h3 class="text-white text-xl font-bold">Quito</h3>
+                <img src="/assets/common/ec.png" alt="Ecuador" class="w-5 h-auto">
             </div>
         </div>
         
         <!-- Segunda fila: 3 columnas variadas -->
         <div class="h-[200px] relative overflow-hidden rounded-lg shadow-lg group cursor-pointer sm:col-span-5">
-            <img src="/assets/common/cartagena.jpeg" alt="Cartagena" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+            <img src="/assets/common/cuenca.jpg" alt="Cuenca" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
             <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-transparent"></div>
             <div class="absolute top-4 left-4 flex items-center gap-2">
-                <h3 class="text-white text-xl font-bold">Cartagena</h3>
-                <img src="/assets/common/co.png" alt="Colombia" class="w-5 h-auto">
+                <h3 class="text-white text-xl font-bold">Cuenca</h3>
+                <img src="/assets/common/ec.png" alt="Ecuador" class="w-5 h-auto">
             </div>
         </div>
         
         <div class="h-[200px] relative overflow-hidden rounded-lg shadow-lg group cursor-pointer sm:col-span-4">
-            <img src="/assets/common/santa_marta.jpeg" alt="Santa Marta" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+            <img src="/assets/common/agua_santa.png" alt="Baños de Agua Santa" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
             <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-transparent"></div>
             <div class="absolute top-4 left-4 flex items-center gap-2">
-                <h3 class="text-white text-xl font-bold">Santa Marta</h3>
-                <img src="/assets/common/co.png" alt="Colombia" class="w-5 h-auto">
+                <h3 class="text-white text-xl font-bold">Baños de Agua Santa</h3>
+                <img src="/assets/common/ec.png" alt="Ecuador" class="w-5 h-auto">
             </div>
         </div>
         
         <div class="h-[200px] relative overflow-hidden rounded-lg shadow-lg group cursor-pointer sm:col-span-3">
-            <img src="/assets/common/barranquilla.jpg" alt="Barranquilla" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+            <img src="/assets/common/guayaquil.png" alt="Guayaquil" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
             <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-transparent"></div>
             <div class="absolute top-4 left-4 flex items-center gap-2">
-                <h3 class="text-white text-xl font-bold">Barranquilla</h3>
-                <img src="/assets/common/co.png" alt="Colombia" class="w-5 h-auto">
+                <h3 class="text-white text-xl font-bold">Guayaquil</h3>
+                <img src="/assets/common/ec.png" alt="Ecuador" class="w-5 h-auto">
             </div>
         </div>
     </div>

@@ -6,6 +6,8 @@
 	import { reservationStore } from '$lib/stores/reservation';
 	import { validateDateRange, diffNights } from '$lib/utils/dateValidation';
 	import { PRICE_DISCOUNT, applyPriceDiscount } from '$lib/config/discount';
+	import { DEFAULT_CURRENCY } from '$lib/config/currency';
+	import { formatMoney } from '$lib/utils/money';
 	
 	// Props
 	export let hotel: Hotel;
@@ -13,12 +15,7 @@
 	
 	// Funciones helper
 	function formatPrice(price: number, currency: string): string {
-		return new Intl.NumberFormat('es-CO', {
-			style: 'currency',
-			currency: currency,
-			minimumFractionDigits: 0,
-			maximumFractionDigits: 0
-		}).format(price);
+		return formatMoney(price, currency);
 	}
 	
 	function getHotelName(): string {
@@ -86,7 +83,7 @@
 
 	function getDiscountedPrice(): { original: number; discounted: number; currency: string } {
 		const original = hotel.priceBreakdown?.grossPrice?.value || 0;
-		const currency = hotel.priceBreakdown?.grossPrice?.currency || hotel.currency || 'USD';
+		const currency = hotel.priceBreakdown?.grossPrice?.currency || hotel.currency || DEFAULT_CURRENCY;
 		const discounted = applyPriceDiscount(original);
 		return { original, discounted, currency };
 	}
@@ -100,7 +97,7 @@
 		// Calcular aproximadamente 20% del precio como impuestos
 		const price = getDiscountedPrice().discounted || 0;
 		const taxAmount = Math.round(price * 0.2);
-		const currency = hotel.priceBreakdown?.grossPrice?.currency || hotel.currency || 'USD';
+		const currency = hotel.priceBreakdown?.grossPrice?.currency || hotel.currency || DEFAULT_CURRENCY;
 		return formatPrice(taxAmount, currency);
 	}
 	

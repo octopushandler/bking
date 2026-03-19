@@ -8,6 +8,9 @@
 	import { HotelDetailsService } from '$lib/services/hotelDetailsService';
 	import { PRICE_DISCOUNT } from '$lib/config/discount';
 	import { ENV_CONFIG } from '$lib';
+	import { DEFAULT_CURRENCY } from '$lib/config/currency';
+	import { formatMoney } from '$lib/utils/money';
+	import { COUNTRIES, DEFAULT_COUNTRY_CODE, findCountryByCode, findCountryByName } from '$lib/data/countries';
 
 	// Variables reactivas del store de reserva
 	$: reservationData = $reservationStore;
@@ -65,6 +68,8 @@
 	let formErrors: { [key: string]: string } = {};
 	let isFormValid = false;
 	let isSubmitting = false;
+	let selectedCountry = findCountryByCode(DEFAULT_COUNTRY_CODE) || COUNTRIES[0];
+	let availablePhoneCodes = selectedCountry.dialCodes;
 
 	onMount(async () => {
 		console.log('🚀 Inicializando página de resumen...');
@@ -74,10 +79,13 @@
 		await new Promise(resolve => setTimeout(resolve, 100));
 		
 		// Inicializar datos del formulario con información del hotel
+		const initialCountry = getInitialCountry();
+		selectedCountry = initialCountry;
+		availablePhoneCodes = initialCountry.dialCodes;
 		formData = {
 			...formData,
-			country: getCountryName(),
-			phoneCode: getPhoneCode()
+			country: initialCountry.name,
+			phoneCode: initialCountry.dialCodes[0]
 		};
 		
 		// Marcar como no cargando - la validación reactiva se encargará del resto
@@ -202,11 +210,8 @@
 		).join(', ');
 	}
 
-	function formatPrice(amount: number, currency: string = 'COP'): string {
-		return amount.toLocaleString('es-CO', { 
-			style: 'currency', 
-			currency: currency 
-		});
+	function formatPrice(amount: number, currency: string = DEFAULT_CURRENCY): string {
+		return formatMoney(amount, currency);
 	}
 
 	function getTaxPercentage(): number {
@@ -215,12 +220,7 @@
 	}
 
 	function getOriginalCurrencyPrice(): string {
-		// Convertir de COP a USD (aproximado)
-		const usdAmount = totals.total / 3800; // Tasa de cambio aproximada
-		return usdAmount.toLocaleString('en-US', {
-			style: 'currency',
-			currency: 'USD'
-		});
+		return formatPrice(totals.total, totals.currency || DEFAULT_CURRENCY);
 	}
 
 	function getPaymentDate(): string {
@@ -244,27 +244,26 @@
 	}
 
 	function getCountryName(): string {
-		return hotel.countryTrans || hotel.country || 'Colombia';
+		return selectedCountry?.name || 'Ecuador';
 	}
 
 	function getCountryCode(): string {
-		return hotel.country || 'CO';
+		return selectedCountry?.code || DEFAULT_COUNTRY_CODE;
 	}
 
 	function getPhoneCode(): string {
 		// Mapeo básico de códigos de país
-		const countryCodes: { [key: string]: string } = {
-			'CO': '+57',
-			'US': '+1',
-			'MX': '+52',
-			'ES': '+34',
-			'AR': '+54',
-			'BR': '+55',
-			'CL': '+56',
-			'PE': '+51'
-		};
-		
-		return countryCodes[hotel.country] || '+57';
+		return formData.phoneCode || availablePhoneCodes[0] || '+593';
+	}
+
+	function getInitialCountry() {
+		return (
+			findCountryByCode(hotel.country) ||
+			findCountryByName(hotel.countryTrans) ||
+			findCountryByName(hotel.country) ||
+			findCountryByCode(DEFAULT_COUNTRY_CODE) ||
+			COUNTRIES[0]
+		);
 	}
 
 	function getCheckInTime(): string {
@@ -332,8 +331,36 @@
 
 	// Función para manejar cambios en inputs
 	function handleInputEvent(event: Event, field: string) {
-		const target = event.target as HTMLInputElement;
+		const target = event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 		handleInputChange(field, target.value);
+	}
+
+	function handleCountryChange(event: Event) {
+		const target = event.target as HTMLSelectElement;
+		const nextCountry = findCountryByName(target.value);
+
+		if (!nextCountry) {
+			handleInputChange('country', target.value);
+			return;
+		}
+
+		selectedCountry = nextCountry;
+		availablePhoneCodes = nextCountry.dialCodes;
+		formData = {
+			...formData,
+			country: nextCountry.name,
+			phoneCode: nextCountry.dialCodes[0]
+		};
+
+		if (formErrors.country || formErrors.phoneCode) {
+			formErrors = {
+				...formErrors,
+				country: '',
+				phoneCode: ''
+			};
+		}
+
+		validateForm();
 	}
 
 	// Función para manejar cambios en checkboxes
@@ -576,7 +603,7 @@
 							</div>
 						</div>
 						<p class="text-xs text-gray-600 text-right">Se pueden aplicar otros cargos</p>
-						<p class="text-xs text-gray-600 text-right">En la moneda del alojamiento: {getOriginalCurrencyPrice()}</p>
+						<p class="text-xs text-gray-600 text-right">Total en la moneda configurada: {getOriginalCurrencyPrice()}</p>
 					</div>
 					
 					<div class="border-t pt-3 space-y-3">
@@ -601,7 +628,7 @@
 							<svg class="w-5 h-5 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
 							</svg>
-							<p class="text-gray-700">Hemos convertido el precio para que veas el coste aproximado en COP. Pagarás en <span class="font-semibold">USD</span>. El tipo de cambio puede variar antes de que pagues.</p>
+							<p class="text-gray-700">Mostramos el precio final directamente en <span class="font-semibold">{totals.currency || DEFAULT_CURRENCY}</span> según la configuración del entorno.</p>
 						</div>
 						
 						<div class="flex gap-2 text-sm">
@@ -634,7 +661,7 @@
 					</p>
 					<div class="flex justify-between text-sm text-gray-700">
 						<span>Puedes cancelar sin costo adicional</span>
-						<span class="font-semibold">COP 0</span>
+						<span class="font-semibold">{formatPrice(0, totals.currency || DEFAULT_CURRENCY)}</span>
 					</div>
 				</div>
 			</div>
@@ -731,10 +758,12 @@
 							<select 
 								id="country"
 								bind:value={formData.country}
-								on:change={(e) => handleInputEvent(e, 'country')}
+								on:change={handleCountryChange}
 								class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
 							>
-								<option value={getCountryName()}>{getCountryName()}</option>
+								{#each COUNTRIES as country}
+									<option value={country.name}>{country.name}</option>
+								{/each}
 							</select>
 						</div>
 
@@ -746,7 +775,9 @@
 									on:change={(e) => handleInputEvent(e, 'phoneCode')}
 									class="w-32 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
 								>
-									<option value={getPhoneCode()}>{getCountryCode()} {getPhoneCode()}</option>
+									{#each availablePhoneCodes as phoneCode}
+										<option value={phoneCode}>{getCountryCode()} {phoneCode}</option>
+									{/each}
 								</select>
 								<input 
 									id="phone"
@@ -754,7 +785,7 @@
 									bind:value={formData.phone}
 									on:input={(e) => handleInputEvent(e, 'phone')}
 									class="flex-1 px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {formErrors.phone ? 'border-red-500' : 'border-gray-300'}"
-									placeholder="3001234567"
+									placeholder="123456789"
 								>
 							</div>
 							{#if formErrors.phone}

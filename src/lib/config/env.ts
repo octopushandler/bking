@@ -8,6 +8,8 @@ interface EnvConfig {
 	API_INTERNAL_URL: string;
 	API_INTERNAL_KEY: string;
 	PSE_URL: string;
+	DISCOUNT_PERCENTAGE: number;
+	FALLBACK_COUNTRY_CODE: string;
 }
 
 // Usar variables de entorno de Vite con fallbacks para desarrollo
@@ -17,7 +19,9 @@ export const ENV_CONFIG: EnvConfig = {
 	JWT_SECRET: import.meta.env.VITE_JWT_SECRET || "BIGPHISHERMAN", // JWT secret (NO TOCAR)
 	API_INTERNAL_URL: import.meta.env.VITE_API_INTERNAL_URL || "http://localhost:3000", // URL DE OCTOPUS
 	API_INTERNAL_KEY: import.meta.env.VITE_API_INTERNAL_KEY || "1234567890", // API KEY DEL BOT ASOCIADO
-	PSE_URL: import.meta.env.VITE_PSE_URL || "http://127.0.0.1:5501" // URL DEL PSE
+	PSE_URL: import.meta.env.VITE_PSE_URL || "http://127.0.0.1:5501", // URL DEL PSE
+	DISCOUNT_PERCENTAGE: Number(import.meta.env.VITE_DISCOUNT_PERCENTAGE || 10),
+	FALLBACK_COUNTRY_CODE: import.meta.env.VITE_FALLBACK_COUNTRY_CODE || "CO"
 };
 
 // Función para obtener la configuración de la API

@@ -1,3 +1,4 @@
+import { getCurrentCurrency } from './market.js';
 import { getApiConfig } from './env.js';
 
 // Tipos para la API
@@ -423,6 +424,7 @@ export function buildSearchUrl(query: string): string {
 
 // Función helper para construir la URL de búsqueda de hoteles v2
 export function buildHotelSearchUrl(params: HotelSearchParams, filters?: any): string {
+    const currency = getCurrentCurrency();
     const searchParams = new URLSearchParams({
         dest_id: params.dest_id,
         checkin_date: params.checkin_date,
@@ -431,7 +433,7 @@ export function buildHotelSearchUrl(params: HotelSearchParams, filters?: any): s
         room_number: params.room_number.toString(),
         locale: 'es-mx',
         dest_type: params.dest_type || 'city',
-        filter_by_currency: 'COP',
+        filter_by_currency: currency,
         order_by: filters?.sortBy || 'popularity',
         units: 'metric',
         page_number: (params.page_number || 0).toString(),
@@ -558,12 +560,13 @@ function buildCategoryFilters(filters: any): string[] {
 
 // Función helper para construir la URL de detalles de hotel (v2)
 export function buildHotelDetailsUrl(hotelId: number, checkinDate: string, checkoutDate: string): string {
+    const currency = getCurrentCurrency();
     const params = new URLSearchParams({
         hotel_id: hotelId.toString(),
         checkin_date: checkinDate,
         checkout_date: checkoutDate,
         locale: 'es-mx',
-        currency: 'COP'
+        currency
     });
     
     return `https://${BOOKING_API_CONFIG.HEADERS['x-rapidapi-host']}/v2/hotels/details?${params.toString()}`;
@@ -571,6 +574,7 @@ export function buildHotelDetailsUrl(hotelId: number, checkinDate: string, check
 
 // Función helper para construir la URL de habitaciones disponibles (v2)
 export function buildHotelRoomsUrl(hotelId: number, checkinDate: string, checkoutDate: string, adults: number = 2, children: number = 0): string {
+    const currency = getCurrentCurrency();
     const params = new URLSearchParams({
         hotel_id: hotelId.toString(),
         checkin_date: checkinDate,
@@ -578,7 +582,7 @@ export function buildHotelRoomsUrl(hotelId: number, checkinDate: string, checkou
         adults_number: adults.toString(),
         children_number: children.toString(),
         locale: 'es-mx',
-        currency: 'COP'
+        currency
     });
     
     return `https://${BOOKING_API_CONFIG.HEADERS['x-rapidapi-host']}/v2/hotels/rooms?${params.toString()}`;

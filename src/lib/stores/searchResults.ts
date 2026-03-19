@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
 import type { Hotel, HotelSearchParams } from '$lib/config/api';
+import { getCurrentCurrency } from '$lib/config/market';
 
 // Estado de resultados de búsqueda
 export interface SearchResultsState {
@@ -103,7 +104,7 @@ const initialState: SearchResultsState = {
 		adults: 2,
 		children: 0,
 		rooms: 1,
-		currency: 'COP',
+		currency: getCurrentCurrency(),
 		sortBy: 'popularity',
 		
 		// Valores por defecto para nuevos filtros

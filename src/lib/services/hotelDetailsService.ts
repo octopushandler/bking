@@ -3,6 +3,8 @@ import { buildHotelDetailsUrl, buildHotelRoomsUrl, BOOKING_API_CONFIG } from '$l
 import { fetchWithRetry, handleApiError, fetchWithTimeout } from '$lib/utils/apiHelpers';
 import { notificationAPI } from '$lib/stores/notifications';
 import { PRICE_DISCOUNT, applyPriceDiscount } from '$lib/config/discount';
+import { getCurrentCurrency } from '$lib/config/market';
+import { formatMoneyAmount } from '$lib/utils/money';
 
 export class HotelDetailsService {
 	/**
@@ -56,7 +58,7 @@ export class HotelDetailsService {
 			accommodation_type_name: 'Hotel',
 			url: `https://www.booking.com/hotel/${hotelId}`,
 			hotel_address_line: 'Dirección no disponible',
-			country_trans: 'Colombia',
+			country_trans: 'Ecuador',
 			countrycode: 'CO',
 			district: 'Distrito no disponible',
 			district_id: 0,
@@ -73,7 +75,7 @@ export class HotelDetailsService {
 			timezone: 'America/Bogota',
 			latitude: 4.6097,
 			longitude: -74.0817,
-			currency_code: 'COP',
+			currency_code: getCurrentCurrency(),
 			review_nr: 0,
 			class_is_estimated: 1,
 			hotel_facilities: 'Facilidades no disponibles',
@@ -90,13 +92,13 @@ export class HotelDetailsService {
 			composite_price_breakdown: {
 				gross_amount: {
 					value: 0,
-					currency: 'COP',
+					currency: getCurrentCurrency(),
 					amount_rounded: '0',
 					amount_unrounded: '0'
 				},
 				all_inclusive_amount: {
 					value: 0,
-					currency: 'COP',
+					currency: getCurrentCurrency(),
 					amount_rounded: '0',
 					amount_unrounded: '0'
 				}
@@ -164,7 +166,7 @@ export class HotelDetailsService {
 			hotel_id: hotelId,
 			arrival_date: checkinDate,
 			departure_date: checkoutDate,
-			currency_code: 'COP',
+			currency_code: getCurrentCurrency(),
 			cheapest_avail_price_eur: 0,
 			total_blocks: 0,
 			block: []
@@ -292,7 +294,7 @@ export class HotelDetailsService {
 		adults: number = 2, 
 		children: number = 0,
 		locale: string = 'es-mx',
-		currency: string = 'COP'
+		currency: string = getCurrentCurrency()
 	): Promise<RoomListResponse | null> {
 		try {
 			// Construir el parámetro de adultos por habitación
@@ -521,18 +523,7 @@ export class HotelDetailsService {
 	 * Formatea el precio para mostrar
 	 */
 	static formatPrice(amount: { value: number; currency: string; amount_rounded?: string }): string {
-		if (amount.amount_rounded) {
-			return amount.amount_rounded;
-		}
-		
-		const formatter = new Intl.NumberFormat('es-CO', {
-			style: 'currency',
-			currency: amount.currency === 'COP' ? 'COP' : 'EUR',
-			minimumFractionDigits: 0,
-			maximumFractionDigits: 0
-		});
-		
-		return formatter.format(amount.value);
+		return formatMoneyAmount(amount);
 	}
 
 	/**

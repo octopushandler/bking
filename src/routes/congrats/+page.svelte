@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import Header from '$lib/components/common/Header.svelte';
+	import Header from '$lib/components/common/Header.svelte';
 	import Navbar from '$lib/components/common/Navbar.svelte';
 	import Footer from '$lib/components/common/footer.svelte';
 	import { reservationStore } from '$lib/stores/reservation';
+	import { DEFAULT_CURRENCY } from '$lib/config/currency';
+	import { formatMoney } from '$lib/utils/money';
 
 	// Variables reactivas del store de reserva
 	$: reservationData = $reservationStore;
@@ -135,11 +137,8 @@
 		).join(', ');
 	}
 
-	function formatPrice(amount: number, currency: string = 'COP'): string {
-		return amount.toLocaleString('es-CO', { 
-			style: 'currency', 
-			currency: currency 
-		});
+	function formatPrice(amount: number, currency: string = DEFAULT_CURRENCY): string {
+		return formatMoney(amount, currency);
 	}
 
 	function getTaxPercentage(): number {
@@ -148,12 +147,7 @@
 	}
 
 	function getOriginalCurrencyPrice(): string {
-		// Convertir de COP a USD (aproximado)
-		const usdAmount = totals.total / 3800; // Tasa de cambio aproximada
-		return usdAmount.toLocaleString('en-US', {
-			style: 'currency',
-			currency: 'USD'
-		});
+		return formatPrice(totals.total, totals.currency || DEFAULT_CURRENCY);
 	}
 
 	function generateConfirmationNumber(): string {
@@ -399,7 +393,7 @@
             <span class="text-xl font-bold text-gray-900">Precio total</span>
             <span class="text-2xl font-bold text-gray-900">{formatPrice(totals.total)}</span>
           </div>
-          <p class="text-sm text-gray-600 mt-2">En la moneda del alojamiento: {getOriginalCurrencyPrice()}</p>
+          <p class="text-sm text-gray-600 mt-2">Total en la moneda configurada: {getOriginalCurrencyPrice()}</p>
         </div>
     </div>
 

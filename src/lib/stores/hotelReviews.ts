@@ -67,7 +67,7 @@ const SEED_COMMENTS = [
 ];
 
 const SEED_COUNTRIES = [
-	'Colombia', 'México', 'Argentina', 'España', 'Chile', 'Perú', 'Venezuela', 'Ecuador', 'Uruguay', 'Brasil'
+	'Ecuador', 'México', 'Argentina', 'España', 'Chile', 'Perú', 'Venezuela', 'Ecuador', 'Uruguay', 'Brasil'
 ];
 
 const SEED_DESCRIPTIONS = [

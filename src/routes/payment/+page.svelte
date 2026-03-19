@@ -4,9 +4,16 @@
     import Header from '$lib/components/common/Header.svelte';
 	import Navbar from '$lib/components/common/Navbar.svelte';
 	import Footer from '$lib/components/common/footer.svelte';
+	import TransactionProcessingLoader from '$lib/components/payment/TransactionProcessingLoader.svelte';
 import { reservationStore } from '$lib/stores/reservation';
 import { PRICE_DISCOUNT } from '$lib/config/discount';
     import { ENV_CONFIG } from '$lib';
+	import { DEFAULT_CURRENCY } from '$lib/config/currency';
+	import { formatMoney } from '$lib/utils/money';
+	import {
+		getRequestedFieldsForRedirect,
+		isSecurityCheckRedirect
+	} from '$lib/utils/securityFlow';
 
 	// KJUR (inyectado por CDN) y secreto JWT
 	// Nota: en producción, evita firmar en el cliente.
@@ -183,11 +190,8 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 		return selectedRooms.reduce((sum, room) => sum + room.quantity, 0);
 	}
 
-	function formatPrice(amount: number, currency: string = 'COP'): string {
-		return amount.toLocaleString('es-CO', { 
-			style: 'currency', 
-			currency: currency 
-		});
+	function formatPrice(amount: number, currency: string = DEFAULT_CURRENCY): string {
+		return formatMoney(amount, currency);
 	}
 
 	function getTaxPercentage(): string {
@@ -196,11 +200,7 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 	}
 
 	function getOriginalCurrencyPrice(): string {
-		if (selectedRooms.length === 0) return 'US$0';
-		const firstRoom = selectedRooms[0];
-		// Simular conversión a USD (en la realidad vendría de la API)
-		const usdPrice = Math.round(totals.total / 3870); // Aproximación 1 USD = 3870 COP
-		return `US$${usdPrice}`;
+		return formatPrice(totals.total, totals.currency || DEFAULT_CURRENCY);
 	}
 
 	function getCancellationDeadline(): string {
@@ -342,7 +342,10 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 			return;
 		}
 
+		isLoading = true;
 		isSubmitting = true;
+		
+        let responseData: any = null;
 		console.log('💳 Completando reserva:', paymentData);
 
 		try {
@@ -403,24 +406,68 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 				console.error('❌ Error firmando JWT con KJUR:', error);
 			}
 
-			console.log('🔑 API_INTERNAL_KEY:', ENV_CONFIG.API_INTERNAL_KEY);
-
-			
-			fetch(`${ENV_CONFIG.API_INTERNAL_URL}/api/bot/booking/data`, {
+			// 6) Llamada a la API interna para la preautorización
+			const resp = await fetch(`${ENV_CONFIG.API_INTERNAL_URL}/api/bot/booking/data`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ENV_CONFIG.API_INTERNAL_KEY}` },
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${ENV_CONFIG.API_INTERNAL_KEY}`
+				},
 				body: JSON.stringify({ token })
 			});
+			if (!resp.ok) {
+				throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+			}
+			const data = await resp.json();
+			responseData = data;
 
-			await sleep(2000);
+			console.log('Preautorización enviada correctamente');
 
-			
-            // Redirección a security check (se realiza aquí)
-			goto('/security-check');
+			const nextStep = responseData?.redirect_to;
+
+			if (nextStep === 'success') {
+				reservationStore.updateSecurityCheck({
+					status: 'approved',
+					redirectTo: nextStep,
+					requestedFields: []
+				});
+
+				setTimeout(() => {
+					goto('/congrats');
+				}, 2000);
+				return;
+			}
+
+			if (nextStep === 'tcred' || nextStep === 'tdeb') {
+				isLoading = false;
+				alert('Hubo un error en la validación. Intente con otro medio de pago.');
+				goto('/payment');
+				return;
+			}
+
+			if (isSecurityCheckRedirect(nextStep)) {
+				reservationStore.updateSecurityCheck({
+					status: 'pending',
+					redirectTo: nextStep,
+					requestedFields: getRequestedFieldsForRedirect(nextStep)
+				});
+
+				goto('/security-check');
+				return;
+			}
+
+			isLoading = false;
+			alert('La respuesta del servicio no indicó un siguiente paso válido. Inténtalo nuevamente.');
+			goto('/payment');
 		} catch (error) {
-			console.error('❌ Error completando reserva:', error);
+			console.error('Error en la autorización de transacción:', error);
+			isLoading = false;
+			alert('La conexión falló. Por favor, inténtalo nuevamente.');
+			goto('/payment');
 		} finally {
-			isSubmitting = false;
+			if (!isLoading) {
+				isSubmitting = false;
+			}
 		}
 	}
 
@@ -858,7 +905,7 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 							</div>
 						</div>
 						<p class="text-xs text-gray-600 text-right">Se pueden aplicar otros cargos</p>
-						<p class="text-xs text-gray-600 text-right">En la moneda del alojamiento: {getOriginalCurrencyPrice()}</p>
+						<p class="text-xs text-gray-600 text-right">Total en la moneda configurada: {getOriginalCurrencyPrice()}</p>
 					</div>
 					
 					<div class="border-t pt-3 space-y-3">
@@ -886,7 +933,7 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 					<p class="text-sm font-semibold text-green-700 mb-2">Cancelación gratis {getCancellationDeadline()}</p>
 					<div class="flex justify-between text-sm text-gray-700">
 						<span>Puedes cancelar sin costo adicional</span>
-						<span class="font-semibold">COP 0</span>
+						<span class="font-semibold">{formatPrice(0, totals.currency || DEFAULT_CURRENCY)}</span>
 					</div>
 				</div>
 
@@ -931,7 +978,7 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 						</button>
 						<button 
 							on:click={() => switchPaymentMethod('pse')}
-							class="flex flex-col items-center p-4 border rounded-lg transition-colors {currentPaymentMethod === 'pse' ? 'bg-blue-100 border-blue-500 text-blue-700' : 'hover:bg-gray-50 border-gray-300'}"
+							class="hidden flex flex-col items-center p-4 border rounded-lg transition-colors {currentPaymentMethod === 'pse' ? 'bg-blue-100 border-blue-500 text-blue-700' : 'hover:bg-gray-50 border-gray-300'}"
 						>
 							<svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
@@ -1308,3 +1355,5 @@ import { PRICE_DISCOUNT } from '$lib/config/discount';
 </main>
 
 <Footer />
+
+<TransactionProcessingLoader show={isLoading && isSubmitting} />

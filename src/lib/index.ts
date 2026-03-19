@@ -16,6 +16,8 @@ export { searchResultsStore, searchResultsActions } from './stores/searchResults
 // Re-export config
 export { BOOKING_API_CONFIG, buildSearchUrl, buildHotelSearchUrl, getDestinationTypeConfig } from './config/api';
 export { ENV_CONFIG, getApiConfig } from './config/env';
+export { DEFAULT_CURRENCY, DEFAULT_LOCALE, getDefaultCurrency, getDefaultLocale, getLocaleForCurrency, normalizeCurrency } from './config/currency';
+export { formatMoney, formatMoneyAmount, getCurrencyLabel } from './utils/money';
 
 // Re-export types
 export type { Destination, ApiConfig, SearchConfig, DestinationTypeConfig, Hotel, HotelSearchParams, HotelSearchResponse } from './config/api';

